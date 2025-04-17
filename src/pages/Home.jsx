@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   fetchTeams,
   addTeam,
-  updateTeam,
   deleteTeam,
+  updateTeam,
 } from "../services/teamService";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -12,115 +12,120 @@ const Home = () => {
   const [teams, setTeams] = useState([]);
   const [member1, setMember1] = useState("");
   const [member2, setMember2] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editValue, setEditValue] = useState("");
   const [search, setSearch] = useState("");
-  const [editingId, setEditingId] = useState(null);
+
+  const fetchAndSetTeams = async () => {
+    const data = await fetchTeams();
+    setTeams(data);
+  };
 
   useEffect(() => {
-    fetchTeams().then(setTeams);
+    fetchAndSetTeams();
   }, []);
 
   const handleAddTeam = async () => {
-    if (!member1.trim() || !member2.trim()) return;
+    if (!member1.trim() || !member2.trim()) {
+      alert("Veuillez remplir les deux noms de joueurs.");
+      return;
+    }
+
+    const fullName = `${member1} / ${member2}`;
     const newTeam = {
-      members: `${member1} / ${member2}`,
+      name: fullName,
+      members: fullName,
     };
+
+    console.log("Envoi de l'équipe :", newTeam); // Debug
+
     try {
-      const addedTeam = await addTeam(newTeam);
-      setTeams([...teams, addedTeam]);
+      await addTeam(newTeam);
+      fetchAndSetTeams();
       setMember1("");
       setMember2("");
-    } catch {
-      alert("Erreur lors de l'ajout.");
+    } catch (error) {
+      alert("Erreur lors de l'ajout de l'équipe");
+      console.error("Erreur d'ajout :", error.message);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer cette équipe ?")) return;
     await deleteTeam(id);
-    setTeams(teams.filter((t) => t.id !== id));
+    fetchAndSetTeams();
   };
 
-  const handleUpdate = async (id, updatedMembers) => {
-    try {
-      const updated = await updateTeam(id, { members: updatedMembers });
-      setTeams(teams.map((t) => (t.id === id ? updated : t)));
-      setEditingId(null);
-    } catch {
-      alert("Erreur lors de la modification");
-    }
+  const handleEdit = (id, currentValue) => {
+    setEditId(id);
+    setEditValue(currentValue);
+  };
+
+  const handleUpdate = async (id) => {
+    await updateTeam(id, {
+      name: editValue,
+      members: editValue,
+    });
+    setEditId(null);
+    setEditValue("");
+    fetchAndSetTeams();
   };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Liste des équipes inscrites", 14, 20);
-    const tableData = filteredTeams.map((team, index) => [
-      `${index + 1}) ${team.members}`,
-    ]);
+    doc.text("Liste des équipes inscrites", 14, 10);
     autoTable(doc, {
-      head: [["Membres"]],
-      body: tableData,
-      startY: 30,
-      styles: {
-        fontSize: 12,
-      },
-      headStyles: {
-        fillColor: [52, 152, 219],
-        textColor: 255,
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
+      startY: 20,
+      head: [["#", "Membres"]],
+      body: teams.map((team, index) => [index + 1, team.members]),
     });
     doc.save("equipes.pdf");
   };
 
-  const filteredTeams = teams.filter((t) =>
-    t.members.toLowerCase().includes(search.toLowerCase())
+  const filteredTeams = teams.filter((team) =>
+    team.members.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 font-sans">
-      <h1 className="text-3xl font-bold mb-6">Liste des équipes inscrites</h1>
+    <div className="container mx-auto p-6 font-sans">
+      <h1 className="text-3xl font-bold mb-6 text-center">Liste des équipes inscrites</h1>
 
       <input
         type="text"
-        placeholder="🔍 Rechercher un joueur..."
+        placeholder="Rechercher un joueur..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full mb-6 px-4 py-2 border border-gray-300 rounded"
+        className="border border-gray-300 rounded p-2 w-full mb-4"
       />
 
-      <div className="mb-6 space-y-2">
-        <h2 className="text-xl font-semibold">Ajouter une équipe</h2>
-        <div className="flex gap-2 flex-col md:flex-row">
+      <div className="bg-white p-4 rounded shadow-md mb-6">
+        <h2 className="text-lg font-semibold mb-4">Ajouter une équipe</h2>
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
           <input
+            type="text"
             placeholder="Nom du joueur 1"
             value={member1}
             onChange={(e) => setMember1(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded"
+            className="border border-gray-300 p-2 rounded w-full"
           />
           <input
+            type="text"
             placeholder="Nom du joueur 2"
             value={member2}
             onChange={(e) => setMember2(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded"
+            className="border border-gray-300 p-2 rounded w-full"
           />
           <button
             onClick={handleAddTeam}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full sm:w-auto"
           >
             Ajouter
           </button>
         </div>
-      </div>
-
-      <div className="mb-6">
         <button
           onClick={handleExportPDF}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
         >
-          📄 Export PDF
+          Export PDF
         </button>
       </div>
 
@@ -128,50 +133,42 @@ const Home = () => {
         {filteredTeams.map((team, index) => (
           <li
             key={team.id}
-            className="bg-gray-100 p-4 rounded shadow flex flex-col md:flex-row md:items-center justify-between"
+            className="bg-gray-100 p-4 rounded shadow-sm flex flex-col sm:flex-row sm:items-center justify-between"
           >
-            <div className="mb-2 md:mb-0">
-              <strong>{index + 1})</strong>{" "}
-              {editingId === team.id ? (
+            <div className="text-lg font-medium">
+              {index + 1}){" "}
+              {editId === team.id ? (
                 <input
-                  value={team.members}
-                  onChange={(e) =>
-                    setTeams(
-                      teams.map((t) =>
-                        t.id === team.id
-                          ? { ...t, members: e.target.value }
-                          : t
-                      )
-                    )
-                  }
-                  className="border border-gray-300 px-2 py-1 rounded"
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="border border-gray-300 p-1 rounded w-full sm:w-96"
                 />
               ) : (
                 team.members
               )}
             </div>
-
-            <div className="flex gap-2">
-              {editingId === team.id ? (
+            <div className="mt-2 sm:mt-0 flex gap-2">
+              {editId === team.id ? (
                 <button
-                  onClick={() => handleUpdate(team.id, team.members)}
-                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                  onClick={() => handleUpdate(team.id)}
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
                 >
                   Enregistrer
                 </button>
               ) : (
                 <button
-                  onClick={() => setEditingId(team.id)}
-                  className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
+                  onClick={() => handleEdit(team.id, team.members)}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
                 >
-                  ✏️ Modifier
+                  Modifier
                 </button>
               )}
               <button
                 onClick={() => handleDelete(team.id)}
-                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
               >
-                🗑️ Supprimer
+                Supprimer
               </button>
             </div>
           </li>
