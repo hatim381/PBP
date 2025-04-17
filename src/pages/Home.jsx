@@ -1,136 +1,174 @@
-import React, { useEffect, useState } from "react";
-import { getTeams, addTeam, deleteTeam, updateTeam } from "../services/teamService";
-import TeamForm from "../components/TeamForm";
+import React, { useState, useEffect } from "react";
+import {
+  fetchTeams,
+  addTeam,
+  updateTeam,
+  deleteTeam,
+} from "../services/teamService";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import "jspdf-autotable";
 
 const Home = () => {
   const [teams, setTeams] = useState([]);
-  const [editTeam, setEditTeam] = useState(null);
+  const [member1, setMember1] = useState("");
+  const [member2, setMember2] = useState("");
   const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-    fetchTeams();
+    fetchTeams().then(setTeams);
   }, []);
 
-  const fetchTeams = async () => {
-    const data = await getTeams();
-    setTeams(data);
-  };
+  const handleAddTeam = async () => {
+    if (!member1.trim() || !member2.trim()) return;
 
-  const handleAddOrUpdate = async (team) => {
-    if (team.id) {
-      const updated = await updateTeam(team.id, team);
-      setTeams((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      setEditTeam(null);
-    } else {
-      const newTeam = await addTeam(team);
-      setTeams((prev) => [...prev, newTeam]);
+    const newTeam = {
+      members: `${member1} / ${member2}`,
+    };
+
+    try {
+      const addedTeam = await addTeam(newTeam);
+      setTeams([...teams, addedTeam]);
+      setMember1("");
+      setMember2("");
+    } catch (err) {
+      alert("Erreur lors de l'ajout de l'équipe");
     }
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("Supprimer cette équipe ?")) return;
     await deleteTeam(id);
-    setTeams((prev) => prev.filter((t) => t.id !== id));
+    setTeams(teams.filter((t) => t.id !== id));
+  };
+
+  const handleUpdate = async (id, updatedMembers) => {
+    try {
+      const updated = await updateTeam(id, { members: updatedMembers });
+      setTeams(teams.map((t) => (t.id === id ? updated : t)));
+      setEditingId(null);
+    } catch {
+      alert("Erreur lors de la modification");
+    }
   };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-
-    // Titre
     doc.setFontSize(16);
-    doc.setTextColor(33, 37, 41);
     doc.text("Liste des équipes inscrites", 14, 20);
-
-    // Tableau des équipes
-    autoTable(doc, {
+    const tableData = filteredTeams.map((team, index) => [
+      `${index + 1}) ${team.members}`,
+    ]);
+    doc.autoTable({
+      head: [["Membres"]],
+      body: tableData,
       startY: 30,
-      headStyles: { fillColor: [33, 150, 243] }, // bleu
-      styles: { fontSize: 11 },
-      head: [["N°", "Membres"]],
-      body: teams.map((t, i) => [i + 1, t.members]),
     });
-
     doc.save("equipes.pdf");
   };
 
-  const filtered = teams.filter((t) =>
+  const filteredTeams = teams.filter((t) =>
     t.members.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-3xl mx-auto bg-white p-6 rounded-2xl shadow-lg">
-        <h1 className="text-3xl font-bold text-blue-700 text-center mb-6">
-          Liste des équipes inscrites
-        </h1>
+    <div className="max-w-3xl mx-auto px-4 py-8 font-sans">
+      <h1 className="text-3xl font-bold mb-6">Liste des équipes inscrites</h1>
 
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg mb-6">
-          <h2 className="text-lg font-semibold mb-2">📌 Modalités</h2>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Concours PBP en doublettes constituées – Dimanche 27 avril</li>
-            <li>Inscriptions auprès de Sadik ABASSE (pas dans les groupes)</li>
-            <li>Boulodrome : 16 Rue Louis Armand, 77330 Ozoir-la-Ferrière</li>
-            <li>Tarif :
-              <ul className="list-disc ml-5">
-                <li>15 € membres PBP</li>
-                <li>25 € non membres</li>
-                <li>5 € -18 ans</li>
-              </ul>
-            </li>
-            <li>24 équipes maximum</li>
-            <li className="font-bold text-red-600">⚠ Clôture : Mercredi 23 avril à 18h ⚠</li>
-          </ul>
-        </div>
+      <input
+        type="text"
+        placeholder="🔍 Rechercher un joueur..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full mb-6 px-4 py-2 border border-gray-300 rounded"
+      />
 
-        <div className="mb-6">
+      <div className="mb-6 space-y-2">
+        <h2 className="text-xl font-semibold">Ajouter une équipe</h2>
+        <div className="flex gap-2">
           <input
-            type="text"
-            placeholder="🔍 Rechercher un joueur..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nom du joueur 1"
+            value={member1}
+            onChange={(e) => setMember1(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded"
           />
-        </div>
-
-        <TeamForm onSubmit={handleAddOrUpdate} editTeam={editTeam} />
-
-        <div className="flex justify-center mt-6">
+          <input
+            placeholder="Nom du joueur 2"
+            value={member2}
+            onChange={(e) => setMember2(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded"
+          />
           <button
-            onClick={handleExportPDF}
-            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl shadow"
+            onClick={handleAddTeam}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
-            📄 Export PDF
+            Ajouter
           </button>
         </div>
+      </div>
 
-        <div className="mt-10 space-y-4">
-          {filtered.map((team, index) => (
-            <div
-              key={team.id}
-              className="bg-gray-50 border border-gray-300 rounded-xl p-4 shadow-sm flex justify-between items-center"
-            >
-              <span className="text-gray-800 font-medium">
-                {index + 1}) {team.members}
-              </span>
-              <div className="flex gap-2">
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={handleExportPDF}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          📄 Export PDF
+        </button>
+      </div>
+
+      <ul className="space-y-4">
+        {filteredTeams.map((team, index) => (
+          <li
+            key={team.id}
+            className="bg-gray-100 p-4 rounded shadow flex flex-col md:flex-row md:items-center justify-between"
+          >
+            <div className="mb-2 md:mb-0">
+              <strong>{index + 1})</strong>{" "}
+              {editingId === team.id ? (
+                <input
+                  value={team.members}
+                  onChange={(e) =>
+                    setTeams(
+                      teams.map((t) =>
+                        t.id === team.id
+                          ? { ...t, members: e.target.value }
+                          : t
+                      )
+                    )
+                  }
+                  className="border border-gray-300 px-2 py-1 rounded"
+                />
+              ) : (
+                team.members
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {editingId === team.id ? (
                 <button
-                  onClick={() => setEditTeam(team)}
-                  className="text-sm text-blue-600 hover:underline"
+                  onClick={() => handleUpdate(team.id, team.members)}
+                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                >
+                  Enregistrer
+                </button>
+              ) : (
+                <button
+                  onClick={() => setEditingId(team.id)}
+                  className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
                 >
                   ✏️ Modifier
                 </button>
-                <button
-                  onClick={() => handleDelete(team.id)}
-                  className="text-sm text-red-600 hover:underline"
-                >
-                  🗑️ Supprimer
-                </button>
-              </div>
+              )}
+              <button
+                onClick={() => handleDelete(team.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+              >
+                🗑️ Supprimer
+              </button>
             </div>
-          ))}
-        </div>
-      </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
