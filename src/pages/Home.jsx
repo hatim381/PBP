@@ -6,7 +6,7 @@ import {
   deleteTeam,
 } from "../services/teamService";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const Home = () => {
   const [teams, setTeams] = useState([]);
@@ -21,18 +21,16 @@ const Home = () => {
 
   const handleAddTeam = async () => {
     if (!member1.trim() || !member2.trim()) return;
-
     const newTeam = {
       members: `${member1} / ${member2}`,
     };
-
     try {
       const addedTeam = await addTeam(newTeam);
       setTeams([...teams, addedTeam]);
       setMember1("");
       setMember2("");
-    } catch (err) {
-      alert("Erreur lors de l'ajout de l'équipe");
+    } catch {
+      alert("Erreur lors de l'ajout.");
     }
   };
 
@@ -59,10 +57,20 @@ const Home = () => {
     const tableData = filteredTeams.map((team, index) => [
       `${index + 1}) ${team.members}`,
     ]);
-    doc.autoTable({
+    autoTable(doc, {
       head: [["Membres"]],
       body: tableData,
       startY: 30,
+      styles: {
+        fontSize: 12,
+      },
+      headStyles: {
+        fillColor: [52, 152, 219],
+        textColor: 255,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
     });
     doc.save("equipes.pdf");
   };
@@ -85,7 +93,7 @@ const Home = () => {
 
       <div className="mb-6 space-y-2">
         <h2 className="text-xl font-semibold">Ajouter une équipe</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-col md:flex-row">
           <input
             placeholder="Nom du joueur 1"
             value={member1}
@@ -107,7 +115,7 @@ const Home = () => {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-6">
+      <div className="mb-6">
         <button
           onClick={handleExportPDF}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
