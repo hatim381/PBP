@@ -1,0 +1,75 @@
+/* App container */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f8fafc;
+}
+
+/* Formulaire */
+.team-form input {
+  display: block;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 1rem;
+  background-color: #fff;
+  transition: border-color 0.2s;
+}
+
+.team-form input:focus {
+  outline: none;
+  border-color: #2563eb; /* blue-600 */
+}
+
+/* Bouton du formulaire */
+.team-form button {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  background-color: #2563eb; /* blue-600 */
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.team-form button:hover {
+  background-color: #1d4ed8; /* blue-700 */
+}
+
+/* Carte d'équipe */
+.team-item {
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Nom des membres */
+.team-item span {
+  font-size: 1.05rem;
+  color: #1f2937;
+}
+
+/* Actions (modifier/supprimer) */
+.team-item button {
+  margin-left: 0.5rem;
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.team-item button:hover {
+  text-decoration: underline;
+}
