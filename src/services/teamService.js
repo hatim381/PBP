@@ -2,15 +2,19 @@ const API_URL = 'https://pbp-backend-pesw.onrender.com/api/teams';
 
 export const fetchTeams = async () => {
   try {
+    console.log('Fetching teams from:', API_URL); // Debug log
     const response = await fetch(API_URL);
+    console.log('Response status:', response.status); // Debug log
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+    
     const data = await response.json();
-    console.log('API Response:', data); // Debug
+    console.log('Received data:', data); // Debug log
     return data;
   } catch (error) {
-    console.error('Fetch error:', error);
+    console.error('Fetch error details:', error);
     throw error;
   }
 };

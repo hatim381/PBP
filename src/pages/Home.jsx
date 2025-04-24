@@ -311,6 +311,41 @@ const Home = () => {
     setQualifiedTeams(allQualified);
   }, [scores, pools]);
 
+  // Chargement initial des équipes
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchTeams();
+        console.log('Teams loaded from API:', data); // Debug log
+        
+        if (Array.isArray(data)) {
+          setTeams(data);
+        } else {
+          console.error('Invalid data format received:', data);
+          setError('Format de données invalide');
+        }
+      } catch (err) {
+        console.error('Error loading teams:', err);
+        setError('Erreur lors du chargement des équipes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeams();
+  }, []); // S'exécute une seule fois au montage
+
+  const clearPools = () => {
+    if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules ?')) {
+      setPools([]);
+      setScores({});
+      setQualifiedTeams([]);
+      localStorage.removeItem('pools');
+      localStorage.removeItem('scores');
+    }
+  };
+
   return (
     <div className="p-2 sm:p-6 max-w-7xl mx-auto min-h-screen">
       <h1 className="text-2xl sm:text-4xl font-bold mb-4 sm:mb-8 text-center">
@@ -458,6 +493,19 @@ const Home = () => {
           ))}
         </div>
       </div>
+
+      {/* Afficher le bouton d'effacement des poules si des poules existent */}
+      {pools.length > 0 && (
+        <div className="mt-4 mb-8 flex justify-center">
+          <button
+            onClick={clearPools}
+            className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+          >
+            <span>🗑️</span>
+            Effacer les poules
+          </button>
+        </div>
+      )}
 
       {/* Section des poules avec style amélioré */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
