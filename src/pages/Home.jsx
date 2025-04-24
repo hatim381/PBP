@@ -2,38 +2,89 @@ import React, { useEffect, useState } from 'react';
 import { fetchTeams, addTeam, updateTeam, deleteTeam, deleteAllTeams } from '../services/teamService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
+import FinalBracket from '../components/FinalBracket';
 
 const Home = () => {
+  // Ajout du state pour les scores de la phase finale
+  const [finalScores, setFinalScores] = useState({});
   const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editTeam, setEditTeam] = useState(null);
   const [drawExplanation, setDrawExplanation] = useState('');
   const [waitingTeams, setWaitingTeams] = useState([]);
   const [pools, setPools] = useState([]);
   const [scores, setScores] = useState({});
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
+  const [showTeamSummary, setShowTeamSummary] = useState(false);
 
   useEffect(() => {
-    fetchTeams().then(setTeams);
+    const loadTeams = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchTeams();
+        
+        // Vérifier si data est un tableau
+        const teamsArray = Array.isArray(data) ? data : [];
+        console.log('Teams array:', teamsArray);
+
+        // Transformer les données
+        const processedTeams = teamsArray.map(team => ({
+          id: team._id || team.id,
+          members: team.name, // Utiliser directement name comme members
+          name: team.name
+        }));
+
+        console.log('Processed teams:', processedTeams);
+        setTeams(processedTeams);
+        setError(null);
+      } catch (err) {
+        console.error('Load error:', err);
+        setError('Erreur de chargement des équipes');
+        setTeams([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeams();
   }, []);
 
   const handleSubmit = async (teamData) => {
     try {
+      const processedData = {
+        ...teamData,
+        name: teamData.members, // Assurez-vous que name et members sont synchronisés
+        members: teamData.members,
+      };
+
       if (teamData.id) {
-        await updateTeam(teamData.id, teamData);
+        await updateTeam(teamData.id, processedData);
       } else {
-        await addTeam(teamData);
+        await addTeam(processedData);
       }
       setEditTeam(null);
-      fetchTeams().then(setTeams);
+      const freshTeams = await fetchTeams();
+      console.log('Nouvelles équipes après ajout:', freshTeams); // Debug
+      setTeams(freshTeams);
     } catch (error) {
-      console.error('Erreur:', error);
-      alert('Une erreur est survenue');
+      console.error('Erreur détaillée lors de la soumission:', error);
+      alert(`Erreur: ${error.message}`);
     }
   };
 
   const buildBracket = (pool, poolSize) => {
+    if (!Array.isArray(pool) || pool.length !== poolSize) {
+      console.error('Format de pool invalide:', pool);
+      return [];
+    }
+
     if (poolSize === 4) {
-      const [A, B, C, D] = pool;
+      const [A, B, C, D] = pool.map(team => ({
+        ...team,
+        members: team.members || 'Équipe non définie'
+      }));
+      
       return [
         { num: 1, key: 'M1', teams: [A.members, B.members] },
         { num: 2, key: 'M2', teams: [C.members, D.members] },
@@ -41,33 +92,58 @@ const Home = () => {
         { num: 4, key: 'M4', type: 'losers', fromMatches: ['M1', 'M2'] },
         { num: 5, key: 'M5', type: 'mixed', fromWinner: 'M4', fromLoser: 'M3', label: '→ Qualifie le 2e' }
       ];
-    } else {  // poolSize === 3
-      const [A, B, C] = pool;
+    } else if (poolSize === 3) {
+      const [A, B, C] = pool.map(team => ({
+        ...team,
+        members: team.members || 'Équipe non définie'
+      }));
+
       return [
         { num: 1, key: 'M1', teams: [A.members, B.members] },
-        { num: 2, key: 'M2', type: 'loserVsC', fromMatch: 'M1', teams: [C.members] },
-        { num: 3, key: 'M3', type: 'winners', fromMatches: ['M1', 'M2'], label: '→ Les 2 gagnants sont qualifiés' }
+        { num: 2, key: 'M2', type: 'winnerVsC', fromMatch: 'M1', teamC: C.members, label: 'Gagnant M1 vs C' },
+        { num: 3, key: 'M3', type: 'losers', fromMatch: 'M1', fromMatch2: 'M2', label: '→ Perdant M1 vs Perdant M2' }
       ];
     }
+    return [];
   };
 
   const generatePools = () => {
-    const valid = teams.filter(t => { const [a, b] = t.members.split(' / '); return a && b && a !== b; });
+    // Valider et filtrer les équipes valides
+    const valid = teams.filter(t => {
+      const [a, b] = t.members.split(' / ');
+      return a && b && a !== b && a.trim() && b.trim();
+    });
+
+    if (valid.length < 3) {
+      alert('Il faut au moins 3 équipes pour générer les poules');
+      return;
+    }
+
     let s = [...valid].sort(() => Math.random() - 0.5);
     const best = [];
     const wait = [];
     let expl = '';
 
+    // Optimiser la répartition des équipes
     for (let p4 = Math.floor(s.length / 4); p4 >= 0; p4--) {
       const rem = s.length - p4 * 4;
       if (rem % 3 === 0) {
         const p3 = rem / 3;
         let copy = [...s];
-        for (let i = 0; i < p4; i++) best.push(copy.splice(0, 4));
-        for (let i = 0; i < p3; i++) best.push(copy.splice(0, 3));
-        expl = `✅ ${p4} poule(s) de 4 et ${p3} poule(s) de 3`;
-        break;
+        const poolCount = p4 + p3;
+        
+        if (poolCount > 0) {
+          for (let i = 0; i < p4; i++) best.push(copy.splice(0, 4));
+          for (let i = 0; i < p3; i++) best.push(copy.splice(0, 3));
+          expl = `✅ ${p4} poule(s) de 4 et ${p3} poule(s) de 3`;
+          break;
+        }
       }
+    }
+
+    if (best.length === 0) {
+      alert('Impossible de créer des poules valides avec ce nombre d\'équipes');
+      return;
     }
 
     setPools(best.map((pl, i) => ({
@@ -91,14 +167,66 @@ const Home = () => {
   };
 
   const getTeamName = (pool, match) => {
-    const matchKey = match.key;
-    const matchResult = getMatchResult(pool, matchKey);
-
     if (match.teams) {
       return match.teams;
     }
 
+    if (match.type === 'winnerVsC') {
+      const result = getMatchResult(pool, 'M1');
+      if (result === null) {
+        return ['Gagnant M1', match.teamC];
+      }
+      const firstMatch = pool.bracket.find(m => m.key === 'M1');
+      const winner = firstMatch.teams[result];
+      return [winner, match.teamC];
+    }
+
+    if (match.type === 'losers') {
+      const result1 = getMatchResult(pool, 'M1');
+      const result2 = getMatchResult(pool, 'M2');
+      
+      if (result1 === null) return ['Perdant M1', 'En attente...'];
+      
+      const match1 = pool.bracket.find(m => m.key === 'M1');
+      const loser1 = match1.teams[result1 === 0 ? 1 : 0];
+      
+      if (result2 === null) return [loser1, 'Perdant M2'];
+      
+      const match2 = pool.bracket.find(m => m.key === 'M2');
+      const [winner, teamC] = getTeamName(pool, match2);
+      const loser2 = result2 === 0 ? teamC : winner;
+      
+      return [loser1, loser2];
+    }
+
+    if (match.type === 'winners' && pool.bracket.length === 3) {
+      const match1 = pool.bracket.find(m => m.key === 'M1');
+      const match2 = pool.bracket.find(m => m.key === 'M2');
+      const result1 = getMatchResult(pool, 'M1');
+      const result2 = getMatchResult(pool, 'M2');
+      
+      if (result1 === null || result2 === null) {
+        return ['En attente...', 'En attente...'];
+      }
+      
+      const winner1 = match1.teams[result1];
+      const winner2 = match2.teams[result2];
+      return [winner1, winner2];
+    }
+
     if (match.type === 'winners') {
+      if (pool.bracket.length === 3) { // Logique spéciale pour poule de 3
+        const [match1, match2] = match.fromMatches;
+        const result1 = getMatchResult(pool, match1);
+        const result2 = getMatchResult(pool, match2);
+        
+        if (result1 === null || result2 === null) return ['...', '...'];
+        
+        // Le gagnant du premier match contre le gagnant du deuxième match
+        const winner1 = pool.bracket.find(m => m.key === match1).teams[result1];
+        const winner2 = pool.bracket.find(m => m.key === match2).teams[result2];
+        return [winner1, winner2];
+      }
       const [match1, match2] = match.fromMatches;
       const result1 = getMatchResult(pool, match1);
       const result2 = getMatchResult(pool, match2);
@@ -116,12 +244,6 @@ const Home = () => {
       return [team1, team2];
     }
 
-    if (match.type === 'loserVsC') {
-      const result = getMatchResult(pool, match.fromMatch);
-      const loser = result !== null ? getTeamName(pool, pool.bracket.find(m => m.key === match.fromMatch))[result === 0 ? 1 : 0] : '...';
-      return [loser, match.teams[0]];
-    }
-
     if (match.type === 'mixed') {
       const winnerResult = getMatchResult(pool, match.fromWinner);
       const loserResult = getMatchResult(pool, match.fromLoser);
@@ -135,15 +257,20 @@ const Home = () => {
 
   const renderMatch = (pool, match) => {
     const teams = getTeamName(pool, match);
-    return `Match ${match.num} : ${teams[0]} vs ${teams[1]} ${match.label || ''}`;
+    let matchText = `Match ${match.num} : ${teams[0]} vs ${teams[1]}`;
+    
+    if (match.type === 'loserVsC') {
+      matchText = `Match ${match.num} : ${teams[0]} vs ${teams[1]}`;
+    }
+    
+    return `${matchText} ${match.label || ''}`;
   };
 
-  // Ajout de la fonction pour déterminer les qualifiés
   const determineQualifiedTeams = (pool) => {
     const qualified = [];
     const matches = pool.bracket;
     
-    if (pool.bracket.length === 5) { // Poule de 4
+    if (pool.bracket.length === 5) {
       const m3Result = getMatchResult(pool, 'M3');
       const m5Result = getMatchResult(pool, 'M5');
       
@@ -156,12 +283,23 @@ const Home = () => {
         const winner = getTeamName(pool, matches.find(m => m.key === 'M5'))[m5Result];
         qualified.push({ team: winner, rank: 2, pool: pool.name });
       }
-    } else { // Poule de 3
+    } else if (pool.bracket.length === 3) {
+      // Pour les poules de 3
+      const m2Result = getMatchResult(pool, 'M2');
       const m3Result = getMatchResult(pool, 'M3');
+      
+      if (m2Result !== null) {
+        // Le gagnant du match 2 (Gagnant M1 vs C) est 1er
+        const m2Teams = getTeamName(pool, matches.find(m => m.key === 'M2'));
+        const winner = m2Teams[m2Result];
+        qualified.push({ team: winner, rank: 1, pool: pool.name });
+      }
+      
       if (m3Result !== null) {
-        const teams = getTeamName(pool, matches.find(m => m.key === 'M3'));
-        qualified.push({ team: teams[0], rank: 1, pool: pool.name });
-        qualified.push({ team: teams[1], rank: 2, pool: pool.name });
+        // Le gagnant du match 3 (entre les perdants) est 2ème
+        const m3Teams = getTeamName(pool, matches.find(m => m.key === 'M3'));
+        const winner = m3Teams[m3Result];
+        qualified.push({ team: winner, rank: 2, pool: pool.name });
       }
     }
     
@@ -179,6 +317,18 @@ const Home = () => {
       <h1 className="text-4xl font-bold mb-8 text-center">
         Tournoi de Pétanque
       </h1>
+
+      {loading && (
+        <div className="text-center py-4">
+          Chargement des équipes...
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          {error}
+        </div>
+      )}
 
       <div className="mb-8">
         <TeamForm
@@ -223,6 +373,12 @@ const Home = () => {
           <h2 className="text-2xl font-semibold">Équipes ({teams.length})</h2>
           <div className="flex gap-4">
             <button
+              onClick={() => setShowTeamSummary(true)}
+              className="px-6 py-3 bg-primary-100 text-primary-700 rounded-lg shadow hover:bg-primary-200 transition-colors"
+            >
+              📋 Voir le récapitulatif
+            </button>
+            <button
               onClick={generatePools}
               className="px-6 py-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-colors"
             >
@@ -251,6 +407,37 @@ const Home = () => {
             )}
           </div>
         </div>
+
+        {/* Modal de récapitulatif */}
+        {showTeamSummary && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-primary-700">
+                  Récapitulatif des équipes
+                </h3>
+                <button
+                  onClick={() => setShowTeamSummary(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-3">
+                {teams.map((team, index) => (
+                  <div 
+                    key={team.id}
+                    className="p-3 bg-gray-50 rounded-lg flex justify-between items-center"
+                  >
+                    <span className="font-medium">
+                      {index + 1}. {team.members}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.map(team => (
@@ -315,6 +502,20 @@ const Home = () => {
           </div>
         ))}
       </div>
+
+      {/* Afficher la phase finale si on a assez d'équipes qualifiées */}
+      {qualifiedTeams.length >= 16 && (
+        <FinalBracket
+          qualifiedTeams={qualifiedTeams}
+          scores={finalScores}
+          onScoreChange={(matchId, side, value) => {
+            setFinalScores(prev => ({
+              ...prev,
+              [matchId]: { ...(prev[matchId] || {}), [side]: value }
+            }));
+          }}
+        />
+      )}
     </div>
   );
 };

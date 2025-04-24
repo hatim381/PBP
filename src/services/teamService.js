@@ -1,61 +1,90 @@
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api/teams";
+const API_URL = 'https://pbp-backend-pesw.onrender.com/api/teams';
 
-export async function fetchTeams() {
-  const response = await fetch(API_URL);
-  return response.json();
-}
-
-export async function addTeam(teamData) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(teamData),
-  });
-
-  if (!response.ok) {
-    throw new Error("Erreur lors de l'ajout de l'équipe");
-  }
-
-  return response.json();
-}
-
-export async function updateTeam(id, updatedData) {
-  const response = await fetch(`${API_URL}/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(updatedData),
-  });
-
-  if (!response.ok) {
-    throw new Error("Erreur lors de la modification");
-  }
-
-  return response.json();
-}
-
-export async function deleteTeam(id) {
-  const response = await fetch(`${API_URL}/${id}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
+export const fetchTeams = async () => {
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Erreur lors de la suppression");
+    const data = await response.json();
+    console.log('API Response:', data); // Debug
+    return data;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw error;
   }
+};
 
-  return response.json();
-}
+export const addTeam = async (teamData) => {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(teamData),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Add team error:', error);
+    throw error;
+  }
+};
 
-export async function deleteAllTeams() {
-  const teams = await fetchTeams();
-  const deletePromises = teams.map(team => deleteTeam(team.id));
-  await Promise.all(deletePromises);
-  return { message: "Toutes les équipes ont été supprimées" };
-}
+export const updateTeam = async (id, teamData) => {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(teamData),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Update team error:', error);
+    throw error;
+  }
+};
+
+export const deleteTeam = async (id) => {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (response.status === 404) {
+      throw new Error('Équipe non trouvée');
+    }
+    
+    if (!response.ok) {
+      throw new Error('Erreur serveur');
+    }
+    
+    // Ne pas attendre de JSON en retour
+    return true;
+  } catch (error) {
+    console.error('Delete team error:', error);
+    throw new Error('Impossible de supprimer l\'équipe');
+  }
+};
+
+export const deleteAllTeams = async () => {
+  try {
+    const teams = await fetchTeams();
+    
+    // Supprimer chaque équipe individuellement
+    await Promise.all(teams.map(team => deleteTeam(team._id || team.id)));
+    
+    return true;
+  } catch (error) {
+    console.error('Delete all teams error:', error);
+    throw new Error('Impossible de supprimer toutes les équipes');
+  }
+};
