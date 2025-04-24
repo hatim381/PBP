@@ -1,87 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTeams, addTeam, updateTeam, deleteTeam, deleteAllTeams } from '../services/teamService';
 import { fetchScores, saveScore } from '../services/scoreService';
+import { saveTournament, fetchTournament } from '../services/tournamentService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
 
 const Home = () => {
-  // Ajout du state pour les scores de la phase finale
-  const [finalScores, setFinalScores] = useState({});
+  // États pour les données principales
   const [teams, setTeams] = useState([]);
+  const [pools, setPools] = useState(() => {
+    const savedPools = localStorage.getItem('pools');
+    return savedPools ? JSON.parse(savedPools) : [];
+  });
+  const [scores, setScores] = useState(() => {
+    const savedScores = localStorage.getItem('scores');
+    return savedScores ? JSON.parse(savedScores) : {};
+  });
+
+  // États UI
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editTeam, setEditTeam] = useState(null);
+  const [showTeamSummary, setShowTeamSummary] = useState(false);
   const [drawExplanation, setDrawExplanation] = useState('');
   const [waitingTeams, setWaitingTeams] = useState([]);
-  const [pools, setPools] = useState([]);
-  const [scores, setScores] = useState({});
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
-  const [showTeamSummary, setShowTeamSummary] = useState(false);
-  const [tournamentId, setTournamentId] = useState(localStorage.getItem('tournamentId') || Date.now().toString());
-  
-  useEffect(() => {
-    localStorage.setItem('tournamentId', tournamentId);
-  }, [tournamentId]);
+  const [finalScores, setFinalScores] = useState({});
 
-  useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchTeams();
-        
-        // Vérifier si data est un tableau
-        const teamsArray = Array.isArray(data) ? data : [];
-        console.log('Teams array:', teamsArray);
-
-        // Transformer les données
-        const processedTeams = teamsArray.map(team => ({
-          id: team._id || team.id,
-          members: team.name, // Utiliser directement name comme members
-          name: team.name
-        }));
-
-        console.log('Processed teams:', processedTeams);
-        setTeams(processedTeams);
-        setError(null);
-      } catch (err) {
-        console.error('Load error:', err);
-        setError('Erreur de chargement des équipes');
-        setTeams([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTeams();
-  }, []);
-
-  useEffect(() => {
-    if (pools.length > 0) {
-      const loadScores = async () => {
-        try {
-          const savedScores = await fetchScores(tournamentId);
-          const scoresObj = {};
-          savedScores.forEach(score => {
-            scoresObj[scoreKey(score.pool_name, score.match_key)] = {
-              score1: score.score1,
-              score2: score.score2
-            };
-          });
-          setScores(scoresObj);
-        } catch (error) {
-          console.error('Error loading scores:', error);
-        }
-      };
-      loadScores();
-    }
-  }, [pools, tournamentId]);
-
+  // Fonction de soumission du formulaire
   const handleSubmit = async (teamData) => {
     try {
       const processedData = {
         ...teamData,
-        name: teamData.members, // Assurez-vous que name et members sont synchronisés
+        name: teamData.members,
         members: teamData.members,
       };
 
@@ -92,14 +44,14 @@ const Home = () => {
       }
       setEditTeam(null);
       const freshTeams = await fetchTeams();
-      console.log('Nouvelles équipes après ajout:', freshTeams); // Debug
       setTeams(freshTeams);
     } catch (error) {
-      console.error('Erreur détaillée lors de la soumission:', error);
+      console.error('Erreur lors de la soumission:', error);
       alert(`Erreur: ${error.message}`);
     }
   };
 
+  // Fonction pour construire les brackets
   const buildBracket = (pool, poolSize) => {
     if (!Array.isArray(pool) || pool.length !== poolSize) {
       console.error('Format de pool invalide:', pool);
@@ -133,6 +85,16 @@ const Home = () => {
     }
     return [];
   };
+
+  // Sauvegarder les scores quand ils changent
+  useEffect(() => {
+    localStorage.setItem('scores', JSON.stringify(scores));
+  }, [scores]);
+
+  // Sauvegarder les poules quand elles changent
+  useEffect(() => {
+    localStorage.setItem('pools', JSON.stringify(pools));
+  }, [pools]);
 
   const generatePools = () => {
     // Valider et filtrer les équipes valides
@@ -179,28 +141,20 @@ const Home = () => {
     })));
     setWaitingTeams(wait);
     setDrawExplanation(expl);
-    setScores({});
+    setScores({}); // Réinitialiser les scores pour un nouveau tirage
+    localStorage.setItem('scores', JSON.stringify({}));
   };
 
   const scoreKey = (pool, key) => `${pool}-${key}`;
-  const handleScoreChange = async (pool, key, side, v) => {
-    const newScores = {
-      ...scores,
-      [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
-    };
-    setScores(newScores);
-
-    try {
-      await saveScore({
-        tournament_id: tournamentId,
-        pool_name: pool,
-        match_key: key,
-        score1: newScores[scoreKey(pool, key)].score1 || 0,
-        score2: newScores[scoreKey(pool, key)].score2 || 0
-      });
-    } catch (error) {
-      console.error('Error saving score:', error);
-    }
+  const handleScoreChange = (pool, key, side, v) => {
+    setScores(prev => {
+      const newScores = {
+        ...prev,
+        [scoreKey(pool, key)]: { ...(prev[scoreKey(pool, key)] || {}), [side]: v }
+      };
+      localStorage.setItem('scores', JSON.stringify(newScores));
+      return newScores;
+    });
   };
 
   const getMatchResult = (pool, matchKey) => {
