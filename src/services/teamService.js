@@ -1,4 +1,4 @@
-const API_URL = "https://pbp-backend-pesw.onrender.com/api/teams";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api/teams";
 
 export async function fetchTeams() {
   const response = await fetch(API_URL);
@@ -40,11 +40,22 @@ export async function updateTeam(id, updatedData) {
 export async function deleteTeam(id) {
   const response = await fetch(`${API_URL}/${id}`, {
     method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    }
   });
 
   if (!response.ok) {
-    throw new Error("Erreur lors de la suppression");
+    const error = await response.json();
+    throw new Error(error.message || "Erreur lors de la suppression");
   }
 
   return response.json();
+}
+
+export async function deleteAllTeams() {
+  const teams = await fetchTeams();
+  const deletePromises = teams.map(team => deleteTeam(team.id));
+  await Promise.all(deletePromises);
+  return { message: "Toutes les équipes ont été supprimées" };
 }

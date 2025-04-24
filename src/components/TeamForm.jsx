@@ -14,55 +14,49 @@ const TeamForm = ({ onSubmit, editTeam }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!player1 || !player2) {
+    if (!player1.trim() || !player2.trim()) {
       alert("Les deux joueurs sont obligatoires");
       return;
     }
 
-    const data = {
+    onSubmit({
       id: editTeam?.id,
-      name: `${player1} / ${player2}`,
-      members: `${player1} / ${player2}`,
-      email: "",
-      phone: "",
-    };
-
-    onSubmit(data);
+      members: `${player1.trim()} / ${player2.trim()}`
+    });
 
     setPlayer1("");
     setPlayer2("");
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white rounded-xl p-6 shadow-md space-y-4"
-    >
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 shadow-md space-y-4">
       <h2 className="text-xl font-semibold text-gray-700">
         {editTeam ? "Modifier l'équipe" : "Ajouter une équipe"}
       </h2>
 
-      <input
-        type="text"
-        placeholder="Nom du joueur 1"
-        value={player1}
-        onChange={(e) => setPlayer1(e.target.value)}
-        required
-        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+      <div className="flex gap-4">
+        <input
+          type="text"
+          placeholder="Joueur 1"
+          value={player1}
+          onChange={(e) => setPlayer1(e.target.value)}
+          required
+          className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+        />
 
-      <input
-        type="text"
-        placeholder="Nom du joueur 2"
-        value={player2}
-        onChange={(e) => setPlayer2(e.target.value)}
-        required
-        className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+        <input
+          type="text"
+          placeholder="Joueur 2"
+          value={player2}
+          onChange={(e) => setPlayer2(e.target.value)}
+          required
+          className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+        />
+      </div>
 
       <button
         type="submit"
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+        className="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
       >
         {editTeam ? "Modifier" : "Ajouter"}
       </button>

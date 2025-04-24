@@ -1,75 +1,520 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #EBF4FF 0%, #E6FFFA 100%);
+  min-height: 100vh;
+  margin: 0;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 /* App container */
 .container {
-  max-width: 800px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: 'Segoe UI', sans-serif;
-  background-color: #f8fafc;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 4rem;
+  position: relative;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 4px;
+  background: linear-gradient(90deg, #4F46E5, #06B6D4);
+  border-radius: 2px;
+}
+
+.header h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #4F46E5, #06B6D4, #2DD4BF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 1rem;
+}
+
+.header p {
+  font-size: 1.2rem;
+  color: #64748B;
 }
 
 /* Formulaire */
+.team-form {
+  max-width: 800px;
+  margin: 0 auto 3rem;
+  background: #F8FAFC;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
 .team-form input {
-  display: block;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
   width: 100%;
-  border: 1px solid #ccc;
-  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
   font-size: 1rem;
-  background-color: #fff;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
 }
 
 .team-form input:focus {
+  border-color: #4F46E5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
   outline: none;
-  border-color: #2563eb; /* blue-600 */
 }
 
-/* Bouton du formulaire */
 .team-form button {
-  padding: 0.6rem 1.2rem;
-  font-size: 1rem;
-  background-color: #2563eb; /* blue-600 */
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
   color: white;
   border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
 }
 
 .team-form button:hover {
-  background-color: #1d4ed8; /* blue-700 */
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
 }
 
 /* Carte d'équipe */
 .team-item {
-  border: 1px solid #e5e7eb;
-  background-color: #ffffff;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.team-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 /* Nom des membres */
 .team-item span {
-  font-size: 1.05rem;
-  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #37474f;
 }
 
 /* Actions (modifier/supprimer) */
-.team-item button {
-  margin-left: 0.5rem;
-  background: none;
-  border: none;
-  color: #2563eb;
-  cursor: pointer;
-  font-size: 0.9rem;
+.team-item .actions {
+  display: flex;
+  gap: 0.8rem;
 }
 
-.team-item button:hover {
-  text-decoration: underline;
+.team-item .actions button {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.team-item .actions button.edit {
+  background: #42a5f5;
+  color: white;
+}
+
+.team-item .actions button.edit:hover {
+  background: #1e88e5;
+  box-shadow: 0 4px 10px rgba(30, 136, 229, 0.3);
+}
+
+.team-item .actions button.delete {
+  background: #e53935;
+  color: white;
+}
+
+.team-item .actions button.delete:hover {
+  background: #d32f2f;
+  box-shadow: 0 4px 10px rgba(211, 47, 47, 0.3);
+}
+
+/* Nouvelles classes */
+.tournament-container {
+  background: linear-gradient(120deg, #ffffff 0%, #f0f7ff 100%);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.pool-card {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  transition: all 0.3s ease;
+}
+
+.pool-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+}
+
+.match-item {
+  background: linear-gradient(to right, #fafafa, #f5f5f5);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  transition: all 0.2s ease;
+}
+
+.match-item:hover {
+  background: linear-gradient(to right, #f5f5f5, #eeeeee);
+  transform: scale(1.01);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.score-input {
+  width: 70px;
+  height: 45px;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #4f46e5;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.score-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+.team-name {
+  font-weight: 500;
+  color: #1e293b;
+  font-size: 1.1rem;
+  flex: 1;
+}
+
+.qualified-badge {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+}
+
+.draw-button {
+  max-width: 600px;
+  margin: 3rem auto;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.draw-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.gradient-button {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+}
+
+.gradient-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+}
+
+.team-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.team-card {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+}
+
+.team-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #4F46E5, #06B6D4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.team-card:hover::before {
+  opacity: 1;
+}
+
+.team-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.team-card h3 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #37474f;
+  margin-bottom: 1rem;
+}
+
+.team-card p {
+  font-size: 1.2rem;
+  color: #78909c;
+}
+
+.team-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.team-icon {
+  font-size: 2rem;
+  color: #4299e1;
+}
+
+.team-info h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 0;
+}
+
+.team-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.action-btn {
+  padding: 0.8rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.edit-btn {
+  background: #EEF2FF;
+  color: #4F46E5;
+}
+
+.edit-btn:hover {
+  background: #4F46E5;
+  color: white;
+}
+
+.delete-btn {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.delete-btn:hover {
+  background: #EF4444;
+  color: white;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.5s ease forwards;
+}
+
+.team-list-container {
+  margin: 2rem 0;
+}
+
+.team-list-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.team-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.team-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  border-color: #90cdf4;
+}
+
+.team-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.team-icon {
+  font-size: 2rem;
+  color: #4299e1;
+}
+
+.team-info h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.team-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+}
+
+.edit-btn:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  color: white;
+}
+
+.delete-btn:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
 }
