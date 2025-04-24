@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTeams, addTeam, updateTeam, deleteTeam, deleteAllTeams } from '../services/teamService';
+import { fetchScores, saveScore } from '../services/scoreService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
@@ -17,6 +18,11 @@ const Home = () => {
   const [scores, setScores] = useState({});
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
   const [showTeamSummary, setShowTeamSummary] = useState(false);
+  const [tournamentId, setTournamentId] = useState(localStorage.getItem('tournamentId') || Date.now().toString());
+  
+  useEffect(() => {
+    localStorage.setItem('tournamentId', tournamentId);
+  }, [tournamentId]);
 
   useEffect(() => {
     const loadTeams = async () => {
@@ -49,6 +55,27 @@ const Home = () => {
 
     loadTeams();
   }, []);
+
+  useEffect(() => {
+    if (pools.length > 0) {
+      const loadScores = async () => {
+        try {
+          const savedScores = await fetchScores(tournamentId);
+          const scoresObj = {};
+          savedScores.forEach(score => {
+            scoresObj[scoreKey(score.pool_name, score.match_key)] = {
+              score1: score.score1,
+              score2: score.score2
+            };
+          });
+          setScores(scoresObj);
+        } catch (error) {
+          console.error('Error loading scores:', error);
+        }
+      };
+      loadScores();
+    }
+  }, [pools, tournamentId]);
 
   const handleSubmit = async (teamData) => {
     try {
@@ -156,7 +183,25 @@ const Home = () => {
   };
 
   const scoreKey = (pool, key) => `${pool}-${key}`;
-  const handleScoreChange = (pool, key, side, v) => setScores(prev => ({ ...prev, [scoreKey(pool, key)]: { ...(prev[scoreKey(pool, key)] || {}), [side]: v } }));
+  const handleScoreChange = async (pool, key, side, v) => {
+    const newScores = {
+      ...scores,
+      [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
+    };
+    setScores(newScores);
+
+    try {
+      await saveScore({
+        tournament_id: tournamentId,
+        pool_name: pool,
+        match_key: key,
+        score1: newScores[scoreKey(pool, key)].score1 || 0,
+        score2: newScores[scoreKey(pool, key)].score2 || 0
+      });
+    } catch (error) {
+      console.error('Error saving score:', error);
+    }
+  };
 
   const getMatchResult = (pool, matchKey) => {
     const sc = scores[scoreKey(pool.name, matchKey)];
@@ -313,24 +358,24 @@ const Home = () => {
   }, [scores, pools]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-center">
+    <div className="p-2 sm:p-6 max-w-7xl mx-auto min-h-screen">
+      <h1 className="text-2xl sm:text-4xl font-bold mb-4 sm:mb-8 text-center">
         Tournoi de Pétanque
       </h1>
 
       {loading && (
-        <div className="text-center py-4">
+        <div className="text-center py-2 sm:py-4">
           Chargement des équipes...
         </div>
       )}
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 sm:px-4 sm:py-3 rounded relative mb-4">
           {error}
         </div>
       )}
 
-      <div className="mb-8">
+      <div className="mb-4 sm:mb-8">
         <TeamForm
           onSubmit={handleSubmit}
           editTeam={editTeam}
@@ -339,11 +384,11 @@ const Home = () => {
 
       {/* Section des qualifiés */}
       {qualifiedTeams.length > 0 && (
-        <div className="mb-8 bg-gradient-to-r from-primary-100 to-accent-100 p-6 rounded-xl shadow-lg">
-          <h2 className="text-2xl font-bold text-primary-800 mb-4">
+        <div className="mb-4 sm:mb-8 bg-gradient-to-r from-primary-100 to-accent-100 p-3 sm:p-6 rounded-xl shadow-lg">
+          <h2 className="text-xl sm:text-2xl font-bold text-primary-800 mb-3 sm:mb-4">
             🏆 Équipes Qualifiées
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {qualifiedTeams.map((qualified, idx) => (
               <div 
                 key={idx}
@@ -368,19 +413,19 @@ const Home = () => {
         </div>
       )}
 
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Équipes ({teams.length})</h2>
-          <div className="flex gap-4">
+      <div className="mb-4 sm:mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-semibold">Équipes ({teams.length})</h2>
+          <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto">
             <button
               onClick={() => setShowTeamSummary(true)}
-              className="px-6 py-3 bg-primary-100 text-primary-700 rounded-lg shadow hover:bg-primary-200 transition-colors"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-primary-100 text-primary-700 rounded-lg shadow text-sm sm:text-base"
             >
               📋 Voir le récapitulatif
             </button>
             <button
               onClick={generatePools}
-              className="px-6 py-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-colors"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-primary-600 text-white rounded-lg shadow-lg text-sm sm:text-base"
             >
               🎲 Générer les poules
             </button>
@@ -400,7 +445,7 @@ const Home = () => {
                     }
                   }
                 }}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 transition-colors"
+                className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-red-600 text-white rounded-lg shadow-lg text-sm sm:text-base"
               >
                 🗑️ Tout supprimer
               </button>

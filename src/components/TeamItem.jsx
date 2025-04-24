@@ -13,19 +13,19 @@ const TeamItem = ({ team, onEdit, onDelete }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-center">
-        <span className="font-medium">{team.members}</span>
-        <div className="flex gap-2">
+    <div className="bg-white rounded-lg shadow p-3 sm:p-4 hover:shadow-md transition-shadow">
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <span className="text-sm sm:text-base font-medium flex-grow">{team.members}</span>
+        <div className="flex gap-1 sm:gap-2">
           <button
             onClick={() => onEdit(team)}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            className="p-1.5 sm:p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
           >
             ✏️
           </button>
           <button
             onClick={handleDelete}
-            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+            className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
           >
             🗑️
           </button>

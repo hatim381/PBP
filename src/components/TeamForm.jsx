@@ -29,19 +29,19 @@ const TeamForm = ({ onSubmit, editTeam }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 shadow-md space-y-4">
-      <h2 className="text-xl font-semibold text-gray-700">
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-4 sm:p-6 shadow-md space-y-4">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
         {editTeam ? "Modifier l'équipe" : "Ajouter une équipe"}
       </h2>
 
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <input
           type="text"
           placeholder="Joueur 1"
           value={player1}
           onChange={(e) => setPlayer1(e.target.value)}
           required
-          className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 sm:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
         />
 
         <input
@@ -50,13 +50,13 @@ const TeamForm = ({ onSubmit, editTeam }) => {
           value={player2}
           onChange={(e) => setPlayer2(e.target.value)}
           required
-          className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+          className="w-full px-3 sm:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
         />
       </div>
 
       <button
         type="submit"
-        className="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
+        className="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
       >
         {editTeam ? "Modifier" : "Ajouter"}
       </button>
