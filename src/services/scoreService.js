@@ -2,26 +2,15 @@ const API_URL = 'https://pbp-backend-pesw.onrender.com/api/scores';
 
 export const saveScores = async (tournamentId, scores) => {
   try {
-    // Sauvegarder dans localStorage
+    // Sauvegarder en local
     localStorage.setItem(`scores_${tournamentId}`, JSON.stringify(scores));
     
     // Sauvegarder sur le serveur
-    const promises = Object.entries(scores).map(([key, score]) => {
-      const [poolName, matchKey] = key.split('-');
-      return fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tournament_id: tournamentId,
-          pool_name: poolName,
-          match_key: matchKey,
-          score1: score.score1,
-          score2: score.score2
-        })
-      });
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, scores })
     });
-    
-    await Promise.all(promises);
     return true;
   } catch (error) {
     console.error('Error saving scores:', error);
@@ -29,15 +18,32 @@ export const saveScores = async (tournamentId, scores) => {
   }
 };
 
+export const loadScores = async (tournamentId) => {
+  try {
+    // Essayer d'abord de charger depuis le localStorage
+    const localScores = localStorage.getItem(`scores_${tournamentId}`);
+    if (localScores) {
+      return JSON.parse(localScores);
+    }
+
+    // Sinon charger depuis le serveur
+    const response = await fetch(`${API_URL}/${tournamentId}`);
+    if (response.ok) {
+      const scores = await response.json();
+      localStorage.setItem(`scores_${tournamentId}`, JSON.stringify(scores));
+      return scores;
+    }
+    return {};
+  } catch (error) {
+    console.error('Error loading scores:', error);
+    return {};
+  }
+};
+
 export const deleteScores = async (tournamentId) => {
   try {
-    // Supprimer du localStorage
     localStorage.removeItem(`scores_${tournamentId}`);
-    
-    // Supprimer du serveur
-    await fetch(`${API_URL}/${tournamentId}`, {
-      method: 'DELETE'
-    });
+    await fetch(`${API_URL}/${tournamentId}`, { method: 'DELETE' });
     return true;
   } catch (error) {
     console.error('Error deleting scores:', error);

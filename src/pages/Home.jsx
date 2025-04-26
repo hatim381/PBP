@@ -133,15 +133,15 @@ const Home = () => {
   };
 
   const scoreKey = (pool, key) => `${pool}-${key}`;
-  const handleScoreChange = (pool, key, side, v) => {
-    setScores(prev => {
-      const newScores = {
-        ...prev,
-        [scoreKey(pool, key)]: { ...(prev[scoreKey(pool, key)] || {}), [side]: v }
-      };
-      localStorage.setItem('scores', JSON.stringify(newScores));
-      return newScores;
-    });
+  const handleScoreChange = async (pool, key, side, v) => {
+    const newScores = {
+      ...scores,
+      [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
+    };
+    setScores(newScores);
+    
+    // Sauvegarder automatiquement après chaque modification
+    await saveScores(tournamentId, newScores);
   };
 
   const getMatchResult = (pool, matchKey) => {
@@ -514,9 +514,8 @@ const Home = () => {
               ))}
             </div>
           ))}
-        </div>
 
-        {pools.length > 0 && (
+          {pools.length > 0 && (
           <div className="flex justify-center gap-4 my-6">
             <button
               onClick={handleSaveScores}
@@ -530,6 +529,55 @@ const Home = () => {
             >
               🗑️ Effacer les poules
             </button>
+          </div>
+        )}
+        </div>
+
+        {/* Section des équipes qualifiées */}
+        {qualifiedTeams.length > 0 && (
+          <div className="mb-4 sm:mb-8 bg-gradient-to-r from-primary-100 to-accent-100 p-3 sm:p-6 rounded-xl shadow-lg">
+            <h2 className="text-xl sm:text-2xl font-bold text-primary-800 mb-3 sm:mb-4">
+              🏆 Équipes Qualifiées
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {qualifiedTeams.map((qualified, idx) => (
+                <div 
+                  key={idx}
+                  className="bg-white p-4 rounded-lg shadow-md transform hover:scale-105 transition-transform"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {qualified.rank === 1 ? '🥇' : '🥈'}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-primary-700">
+                        {qualified.team}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Poule {qualified.pool} - {qualified.rank === 1 ? '1er' : '2ème'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tableau final si suffisamment d'équipes qualifiées */}
+        {qualifiedTeams.length >= 16 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-center mb-6">Phase Finale</h2>
+            <FinalBracket 
+              qualifiedTeams={qualifiedTeams}
+              scores={finalScores}
+              onScoreChange={(matchId, side, value) => {
+                setFinalScores(prev => ({
+                  ...prev,
+                  [matchId]: { ...(prev[matchId] || {}), [side]: value }
+                }));
+              }}
+            />
           </div>
         )}
       </div>
