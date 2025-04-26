@@ -1,29 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .btn-primary {
+    @apply px-4 py-3 bg-primary-600 text-white rounded-lg shadow-lg 
+           transition-all duration-300 flex items-center justify-center gap-2
+           hover:bg-primary-700 hover:shadow-xl active:transform active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-3 bg-gray-100 text-gray-700 rounded-lg shadow-lg
+           transition-all duration-300 flex items-center justify-center gap-2
+           hover:bg-gray-200 hover:shadow-xl active:transform active:scale-95
+           w-full sm:w-auto;
+  }
+
+  .btn-danger {
+    @apply px-4 py-3 bg-red-600 text-white rounded-lg shadow-lg
+           transition-all duration-300 flex items-center justify-center gap-2
+           hover:bg-red-700 hover:shadow-xl active:transform active:scale-95
+           w-full sm:w-auto;
+  }
+
+  .input-primary {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg
+           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-all duration-200 outline-none;
+  }
+
+  .score-input {
+    @apply w-16 text-center px-2 py-1 border border-gray-300 rounded-lg
+           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-all duration-200 outline-none text-lg font-semibold;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-4 sm:p-6
+           transform transition-all duration-300 hover:shadow-xl;
+  }
+}
+
+/* Animations fluides */
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Optimisations tactiles */
+@media (hover: none) {
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    @apply transform scale-105;
+  }
+}
+
+/* Amélioration de la lisibilité */
 body {
-  font-family: 'Inter', sans-serif;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  min-height: 100vh;
+  @apply text-gray-800 antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Personnalisation du scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
+/* Amélioration du scrolling */
+.smooth-scroll {
+  @apply scroll-smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #94a3b8;
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+/* Feedback visuel pour les interactions */
+.touch-feedback {
+  @apply active:opacity-70 transition-opacity duration-150;
 }

@@ -34,6 +34,66 @@ module.exports = {
           '0%': { transform: 'rotate(-10deg)' },
           '50%': { transform: 'rotate(10deg)' },
           '100%': { transform: 'rotate(-10deg)' }
+        },
+        poolEntry: {
+          '0%': { transform: 'scale(0.8)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' }
+        },
+        shuffle: {
+          '0%': { transform: 'translateX(0)' },
+          '25%': { transform: 'translateX(-10px) rotate(-5deg)' },
+          '75%': { transform: 'translateX(10px) rotate(5deg)' },
+          '100%': { transform: 'translateX(0)' }
+        },
+        poolAppear: {
+          '0%': { 
+            opacity: '0',
+            transform: 'translateY(20px) scale(0.95)'
+          },
+          '100%': { 
+            opacity: '1',
+            transform: 'translateY(0) scale(1)'
+          }
+        },
+        diceRoll: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(-15deg)' },
+          '75%': { transform: 'rotate(15deg)' }
+        },
+        shake: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(-5deg)' },
+          '75%': { transform: 'rotate(5deg)' }
+        },
+        poolSlideIn: {
+          '0%': { 
+            transform: 'translateY(50px) scale(0.9)',
+            opacity: 0
+          },
+          '100%': { 
+            transform: 'translateY(0) scale(1)',
+            opacity: 1
+          }
+        },
+        generate: {
+          '0%': { transform: 'scale(1) rotate(0deg)' },
+          '50%': { transform: 'scale(1.2) rotate(180deg)' },
+          '100%': { transform: 'scale(1) rotate(360deg)' }
+        },
+        popIn: {
+          '0%': { transform: 'scale(0) translateY(20px)', opacity: '0' },
+          '70%': { transform: 'scale(1.1) translateY(-5px)' },
+          '100%': { transform: 'scale(1) translateY(0)', opacity: '1' }
+        },
+        fadeIn: {
+          '0%': { 
+            opacity: '0',
+            transform: 'translateY(10px)'
+          },
+          '100%': { 
+            opacity: '1',
+            transform: 'translateY(0)'
+          }
         }
       },
       animation: {
@@ -43,7 +103,16 @@ module.exports = {
         shine: 'shine 8s ease infinite',
         pulse: 'pulse 2s ease-in-out infinite',
         sparkle: 'sparkle 2s ease-in-out infinite',
-        crown: 'crown 3s ease-in-out infinite'
+        crown: 'crown 3s ease-in-out infinite',
+        poolEntry: 'poolEntry 0.5s ease-out forwards',
+        shuffle: 'shuffle 0.5s ease-in-out',
+        'pool-appear': 'poolAppear 0.6s ease-out forwards',
+        'dice-roll': 'diceRoll 0.8s ease-in-out infinite',
+        'shake': 'shake 0.5s ease-in-out infinite',
+        'poolSlideIn': 'poolSlideIn 0.5s ease-out forwards',
+        'generate-pools': 'generate 1s ease-in-out',
+        'pop-in': 'popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards',
+        'fadeIn': 'fadeIn 0.5s ease-out forwards'
       },
       screens: {
         'print': {'raw': 'print'},
