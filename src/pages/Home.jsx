@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTeams, addTeam, updateTeam, deleteTeam, deleteAllTeams } from '../services/teamService';
-import { fetchScores, saveScores, deleteScores } from '../services/scoreService';
+import { loadScores, saveScores, deleteScores } from '../services/scoreService';
 import { saveTournament, fetchTournament } from '../services/tournamentService';
+import { savePools, loadPools } from '../services/poolService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
@@ -86,12 +87,20 @@ const Home = () => {
     return [];
   };
 
+  useEffect(() => {
+    const loadSavedPools = async () => {
+      const savedPools = await loadPools(tournamentId);
+      if (savedPools.length > 0) {
+        setPools(savedPools);
+      }
+    };
+    loadSavedPools();
+  }, [tournamentId]);
+
   const generatePools = async () => {
     if (isGenerating) return;
-    
     setIsGenerating(true);
-    setPools([]); // Effacer les poules existantes
-
+    
     // Filtrer les équipes valides
     const validTeams = teams.filter(t => {
       const [a, b] = t.members.split(' / ');
@@ -121,15 +130,17 @@ const Home = () => {
       }
     }
 
-    setPools(best.map((pool, index) => ({
+    const generatedPools = best.map((pool, index) => ({
       name: String.fromCharCode(65 + index),
       teams: pool,
       bracket: buildBracket(pool, pool.length)
-    })));
-    
+    }));
+
+    setPools(generatedPools);
+    await savePools(tournamentId, generatedPools);
+    setIsGenerating(false);
     setDrawExplanation(expl);
     setScores({});
-    setIsGenerating(false);
   };
 
   const scoreKey = (pool, key) => `${pool}-${key}`;
@@ -139,9 +150,13 @@ const Home = () => {
       [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
     };
     setScores(newScores);
-    
-    // Sauvegarder automatiquement après chaque modification
-    await saveScores(tournamentId, newScores);
+
+    // Sauvegarder automatiquement
+    try {
+      await saveScores(tournamentId, newScores);
+    } catch (error) {
+      console.error('Error saving score:', error);
+    }
   };
 
   const getMatchResult = (pool, matchKey) => {
@@ -313,11 +328,15 @@ const Home = () => {
 
   const handleClearPools = async () => {
     if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules et les scores ?')) {
-      await deleteScores(tournamentId);
-      setPools([]);
-      setScores({});
-      setQualifiedTeams([]);
-      localStorage.removeItem('pools');
+      const deleted = await deleteScores(tournamentId);
+      if (deleted) {
+        setPools([]);
+        setScores({});
+        setQualifiedTeams([]);
+        localStorage.removeItem('pools');
+      } else {
+        alert('Erreur lors de la suppression des scores');
+      }
     }
   };
 
@@ -360,6 +379,18 @@ const Home = () => {
     }
   };
 
+  // Ajouter cet effet pour charger les scores au démarrage
+  useEffect(() => {
+    const loadSavedScores = async () => {
+      if (pools.length > 0) {
+        const savedScores = await loadScores(tournamentId);
+        setScores(savedScores);
+      }
+    };
+    
+    loadSavedScores();
+  }, [pools.length, tournamentId]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -388,11 +419,18 @@ const Home = () => {
           
           <button
             onClick={generatePools}
-            disabled={isGenerating || !teams?.length}
-            className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-600
-                     transition-all duration-300 flex items-center gap-2"
+            disabled={isGenerating || !teams?.length || pools.length > 0}
+            className={`px-6 py-3 ${
+              pools.length > 0 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white rounded-xl shadow-lg transition-all duration-300 flex items-center gap-2`}
           >
-            <span>🎲</span> Générer les poules
+            <span>🎲</span> 
+            {pools.length > 0 
+              ? 'Poules déjà générées' 
+              : 'Générer les poules'
+            }
           </button>
 
           {teams?.length > 0 && (
