@@ -1,20 +1,34 @@
 const API_URL = 'https://pbp-backend-pesw.onrender.com/api/teams';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchWithRetry = async (url, options = {}, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await delay(1000 * (i + 1)); // Exponential backoff
+    }
+  }
+};
+
 export const fetchTeams = async () => {
   try {
-    console.log('Fetching teams from:', API_URL); // Debug log
-    const response = await fetch(API_URL);
-    console.log('Response status:', response.status); // Debug log
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Received data:', data); // Debug log
+    const data = await fetchWithRetry(API_URL);
+    console.log('Teams fetched successfully:', data);
     return data;
   } catch (error) {
-    console.error('Fetch error details:', error);
+    console.error('Error fetching teams:', error);
+    // Utiliser les données du localStorage en cas d'échec
+    const cachedTeams = localStorage.getItem('teams');
+    if (cachedTeams) {
+      return JSON.parse(cachedTeams);
+    }
     throw error;
   }
 };
@@ -46,7 +60,9 @@ export const updateTeam = async (id, teamData) => {
       body: JSON.stringify(teamData),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+    const updatedTeam = await response.json();
+    console.log('Updated team:', updatedTeam); // Debug log
+    return updatedTeam;
   } catch (error) {
     console.error('Update team error:', error);
     throw error;

@@ -1,24 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTeams, addTeam, updateTeam, deleteTeam, deleteAllTeams } from '../services/teamService';
-import { fetchScores, saveScore } from '../services/scoreService';
+import { fetchScores, saveScores, deleteScores } from '../services/scoreService';
 import { saveTournament, fetchTournament } from '../services/tournamentService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
 
 const Home = () => {
-  // Initialiser les équipes depuis le localStorage
+  // Initialize states with localStorage data
   const [teams, setTeams] = useState(() => {
     const savedTeams = localStorage.getItem('teams');
     return savedTeams ? JSON.parse(savedTeams) : [];
   });
-
-  // Effet pour sauvegarder les équipes dans le localStorage
-  useEffect(() => {
-    localStorage.setItem('teams', JSON.stringify(teams));
-  }, [teams]);
-
-  // Charger les équipes depuis l'API
+  
+  // Effect for loading teams
   useEffect(() => {
     const loadTeams = async () => {
       try {
@@ -27,20 +22,10 @@ const Home = () => {
         if (Array.isArray(data) && data.length > 0) {
           setTeams(data);
           localStorage.setItem('teams', JSON.stringify(data));
-        } else {
-          // Si l'API ne renvoie pas de données, utiliser les données locales
-          const savedTeams = localStorage.getItem('teams');
-          if (savedTeams) {
-            setTeams(JSON.parse(savedTeams));
-          }
         }
-      } catch (err) {
-        console.error('Error loading teams:', err);
-        // En cas d'erreur, utiliser les données locales
-        const savedTeams = localStorage.getItem('teams');
-        if (savedTeams) {
-          setTeams(JSON.parse(savedTeams));
-        }
+      } catch (error) {
+        console.error('Error loading teams:', error);
+        // If API fails, keep using localStorage data
       } finally {
         setLoading(false);
       }
@@ -48,6 +33,11 @@ const Home = () => {
 
     loadTeams();
   }, []);
+
+  // Effect to persist teams in localStorage
+  useEffect(() => {
+    localStorage.setItem('teams', JSON.stringify(teams));
+  }, [teams]);
 
   // États pour les données principales
   const [pools, setPools] = useState(() => {
@@ -69,6 +59,32 @@ const Home = () => {
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
   const [finalScores, setFinalScores] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [tournamentId] = useState(() => localStorage.getItem('tournamentId') || Date.now().toString());
+
+  const buildBracket = (pool, poolSize) => {
+    if (!Array.isArray(pool) || pool.length !== poolSize) {
+      return [];
+    }
+
+    if (poolSize === 4) {
+      const [A, B, C, D] = pool;
+      return [
+        { num: 1, key: 'M1', teams: [A.members, B.members] },
+        { num: 2, key: 'M2', teams: [C.members, D.members] },
+        { num: 3, key: 'M3', type: 'winners', fromMatches: ['M1', 'M2'], label: '→ Qualifie le 1er' },
+        { num: 4, key: 'M4', type: 'losers', fromMatches: ['M1', 'M2'] },
+        { num: 5, key: 'M5', type: 'mixed', fromWinner: 'M4', fromLoser: 'M3', label: '→ Qualifie le 2e' }
+      ];
+    } else if (poolSize === 3) {
+      const [A, B, C] = pool;
+      return [
+        { num: 1, key: 'M1', teams: [A.members, B.members] },
+        { num: 2, key: 'M2', type: 'winnerVsC', fromMatch: 'M1', teamC: C.members, label: 'Gagnant M1 vs C' },
+        { num: 3, key: 'M3', type: 'losers', fromMatch: 'M1', fromMatch2: 'M2', label: '→ Perdant M1 vs Perdant M2' }
+      ];
+    }
+    return [];
+  };
 
   const generatePools = async () => {
     if (isGenerating) return;
@@ -282,37 +298,27 @@ const Home = () => {
     setQualifiedTeams(allQualified);
   }, [scores, pools]);
 
-  const clearPools = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules ?')) {
+  const handleSaveScores = async () => {
+    if (Object.keys(scores).length === 0) {
+      alert('Aucun score à sauvegarder');
+      return;
+    }
+    const success = await saveScores(tournamentId, scores);
+    if (success) {
+      alert('Scores sauvegardés avec succès');
+    } else {
+      alert('Erreur lors de la sauvegarde des scores');
+    }
+  };
+
+  const handleClearPools = async () => {
+    if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules et les scores ?')) {
+      await deleteScores(tournamentId);
       setPools([]);
       setScores({});
       setQualifiedTeams([]);
       localStorage.removeItem('pools');
-      localStorage.removeItem('scores');
     }
-  };
-
-  const buildBracket = (pool, poolSize) => {
-    if (!Array.isArray(pool)) return [];
-
-    if (poolSize === 4) {
-      const [A, B, C, D] = pool;
-      return [
-        { num: 1, key: 'M1', teams: [A.members, B.members] },
-        { num: 2, key: 'M2', teams: [C.members, D.members] },
-        { num: 3, key: 'M3', type: 'winners', fromMatches: ['M1', 'M2'], label: '→ Qualifie le 1er' },
-        { num: 4, key: 'M4', type: 'losers', fromMatches: ['M1', 'M2'] },
-        { num: 5, key: 'M5', type: 'mixed', fromWinner: 'M4', fromLoser: 'M3', label: '→ Qualifie le 2e' }
-      ];
-    } else if (poolSize === 3) {
-      const [A, B, C] = pool;
-      return [
-        { num: 1, key: 'M1', teams: [A.members, B.members] },
-        { num: 2, key: 'M2', type: 'winnerVsC', fromMatch: 'M1', teamC: C.members, label: 'Gagnant M1 vs C' },
-        { num: 3, key: 'M3', type: 'losers', fromMatch: 'M1', fromMatch2: 'M2', label: '→ Perdant M1 vs Perdant M2' }
-      ];
-    }
-    return [];
   };
 
   const handleSubmit = async (teamData) => {
@@ -337,15 +343,31 @@ const Home = () => {
     }
   };
 
+  const handleTeamEdit = async (teamData) => {
+    try {
+      await updateTeam(teamData.id, {
+        name: teamData.members,
+        members: teamData.members
+      });
+      setTeams(currentTeams => 
+        currentTeams.map(team => 
+          team.id === teamData.id ? {...team, members: teamData.members} : team
+        )
+      );
+    } catch (error) {
+      console.error('Erreur lors de la modification:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+        {/* Header et Form existants */}
         <h1 className="text-2xl sm:text-4xl font-bold text-center text-primary-800 mb-6">
           Tournoi de Pétanque
         </h1>
 
-        {/* Form Section */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
           <TeamForm 
             onSubmit={handleSubmit} 
@@ -354,21 +376,25 @@ const Home = () => {
           />
         </div>
 
-        {/* Actions Section */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        {/* Actions Buttons */}
+        <div className="flex flex-wrap justify-center gap-3 my-6">
           <button
             onClick={() => setShowTeamSummary(true)}
-            className="btn-secondary"
+            className="px-6 py-3 bg-white text-gray-700 rounded-xl shadow hover:shadow-lg
+                     transition-all duration-300 flex items-center gap-2"
           >
-            📋 Récapitulatif
+            <span>📋</span> Récapitulatif
           </button>
+          
           <button
             onClick={generatePools}
             disabled={isGenerating || !teams?.length}
-            className="btn-primary"
+            className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-600
+                     transition-all duration-300 flex items-center gap-2"
           >
-            🎲 Générer les poules
+            <span>🎲</span> Générer les poules
           </button>
+
           {teams?.length > 0 && (
             <button
               onClick={async () => {
@@ -385,63 +411,26 @@ const Home = () => {
                   }
                 }
               }}
-              className="btn-danger"
+              className="px-6 py-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600
+                       transition-all duration-300 flex items-center gap-2"
             >
-              🗑️ Tout supprimer
+              <span>🗑️</span> Tout supprimer
             </button>
           )}
         </div>
 
-        {/* Liste des équipes */}
+        {/* Teams List */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-            <h2 className="text-xl sm:text-2xl font-semibold">
-              Équipes ({teams?.length || 0})
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowTeamSummary(true)}
-                className="btn-secondary"
-              >
-                📋 Récapitulatif
-              </button>
-              <button
-                onClick={generatePools}
-                disabled={isGenerating || !teams?.length}
-                className="btn-primary"
-              >
-                🎲 Générer les poules
-              </button>
-              {teams?.length > 0 && (
-                <button
-                  onClick={async () => {
-                    if (window.confirm('Supprimer toutes les équipes ?')) {
-                      try {
-                        await deleteAllTeams();
-                        setTeams([]);
-                        setPools([]);
-                        setQualifiedTeams([]);
-                        setScores({});
-                      } catch (error) {
-                        console.error('Erreur:', error);
-                        alert('Erreur lors de la suppression');
-                      }
-                    }
-                  }}
-                  className="btn-danger"
-                >
-                  🗑️ Tout supprimer
-                </button>
-              )}
-            </div>
-          </div>
-
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">
+            Équipes ({teams?.length || 0})
+          </h2>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {teams?.map(team => (
               <TeamItem
                 key={team.id}
                 team={team}
-                onEdit={() => setEditTeam(team)}
+                onEdit={handleTeamEdit}
                 onDelete={async () => {
                   try {
                     await deleteTeam(team.id);
@@ -526,6 +515,23 @@ const Home = () => {
             </div>
           ))}
         </div>
+
+        {pools.length > 0 && (
+          <div className="flex justify-center gap-4 my-6">
+            <button
+              onClick={handleSaveScores}
+              className="px-6 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2"
+            >
+              💾 Sauvegarder les scores
+            </button>
+            <button
+              onClick={handleClearPools}
+              className="px-6 py-3 bg-red-600 text-white rounded-xl shadow-lg hover:bg-red-700 transition-all duration-300 flex items-center gap-2"
+            >
+              🗑️ Effacer les poules
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
