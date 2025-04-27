@@ -1,7 +1,7 @@
 import React from 'react';
 
 const PhotoGallery = () => {
-  const photos = [1, 2, 3, 4].map(num => `/images/Photo concours eid/${num}.jpg`);
+  const photos = [1, 2, 3, 4,5,6,7,8].map(num => `/images/Photo concours eid/${num}.jpg`);
 
   return (
     <div className="max-w-6xl mx-auto p-4">

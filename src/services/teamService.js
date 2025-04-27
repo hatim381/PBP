@@ -57,12 +57,11 @@ export const updateTeam = async (id, teamData) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(teamData),
+      body: JSON.stringify(teamData)
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const updatedTeam = await response.json();
-    console.log('Updated team:', updatedTeam); // Debug log
-    return updatedTeam;
+
+    if (!response.ok) throw new Error('Erreur lors de la modification');
+    return await response.json();
   } catch (error) {
     console.error('Update team error:', error);
     throw error;

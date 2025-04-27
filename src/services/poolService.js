@@ -34,3 +34,19 @@ export const loadPools = async (tournamentId) => {
     return localPools ? JSON.parse(localPools) : [];
   }
 };
+
+export const deletePools = async (tournamentId) => {
+  try {
+    // Supprimer du localStorage
+    localStorage.removeItem(`pools_${tournamentId}`);
+    
+    // Supprimer du serveur
+    await fetch(`${API_URL}/${tournamentId}`, {
+      method: 'DELETE'
+    });
+    return true;
+  } catch (error) {
+    console.error('Delete pools error:', error);
+    return false;
+  }
+};

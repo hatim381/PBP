@@ -8,67 +8,114 @@ import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
 
 const Home = () => {
-  // Initialize states with localStorage data
+  const [tournamentId] = useState(() => localStorage.getItem('tournamentId') || Date.now().toString());
+
+  // États principaux avec initialisation depuis localStorage
+  const [scores, setScores] = useState(() => {
+    const saved = localStorage.getItem('scores');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [teams, setTeams] = useState(() => {
     const savedTeams = localStorage.getItem('teams');
     return savedTeams ? JSON.parse(savedTeams) : [];
   });
-  
-  // Effect for loading teams
-  useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchTeams();
-        if (Array.isArray(data) && data.length > 0) {
-          setTeams(data);
-          localStorage.setItem('teams', JSON.stringify(data));
-        }
-      } catch (error) {
-        console.error('Error loading teams:', error);
-        // If API fails, keep using localStorage data
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTeams();
-  }, []);
-
-  // Effect to persist teams in localStorage
-  useEffect(() => {
-    localStorage.setItem('teams', JSON.stringify(teams));
-  }, [teams]);
-
-  // États pour les données principales
   const [pools, setPools] = useState(() => {
     const savedPools = localStorage.getItem('pools');
     return savedPools ? JSON.parse(savedPools) : [];
   });
-  const [scores, setScores] = useState(() => {
-    const savedScores = localStorage.getItem('scores');
-    return savedScores ? JSON.parse(savedScores) : {};
-  });
 
   // États UI
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [editTeam, setEditTeam] = useState(null);
   const [showTeamSummary, setShowTeamSummary] = useState(false);
-  const [drawExplanation, setDrawExplanation] = useState('');
-  const [waitingTeams, setWaitingTeams] = useState([]);
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
   const [finalScores, setFinalScores] = useState({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [tournamentId] = useState(() => localStorage.getItem('tournamentId') || Date.now().toString());
 
-  const buildBracket = (pool, poolSize) => {
-    if (!Array.isArray(pool) || pool.length !== poolSize) {
+  const scoreKey = (pool, key) => `${pool}-${key}`;
+
+  // Sauvegarder automatiquement les scores quand ils changent
+  useEffect(() => {
+    if (Object.keys(scores).length > 0) {
+      localStorage.setItem('scores', JSON.stringify(scores));
+    }
+  }, [scores]);
+
+  const handleScoreChange = (pool, key, side, v) => {
+    const newScores = {
+      ...scores,
+      [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
+    };
+    setScores(newScores);
+    localStorage.setItem('scores', JSON.stringify(newScores));
+  };
+
+  const handleClearPools = () => {
+    if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules et les scores ?')) {
+      setPools([]);
+      setScores({});
+      localStorage.removeItem('pools');
+      localStorage.removeItem('scores');
+    }
+  };
+
+  const generatePools = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+
+    try {
+      // Filtrer les équipes valides
+      const validTeams = teams.filter(t => {
+        const [a, b] = t.members.split(' / ');
+        return a && b && a !== b && a.trim() && b.trim();
+      });
+
+      // Animation de "réflexion"
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Génération des poules
+      let s = [...validTeams].sort(() => Math.random() - 0.5);
+      const best = [];
+      let expl = '';
+
+      // Optimiser la répartition
+      for (let p4 = Math.floor(s.length / 4); p4 >= 0; p4--) {
+        const rem = s.length - p4 * 4;
+        if (rem % 3 === 0) {
+          const p3 = rem / 3;
+          let copy = [...s];
+          if (p4 + p3 > 0) {
+            for (let i = 0; i < p4; i++) best.push(copy.splice(0, 4));
+            for (let i = 0; i < p3; i++) best.push(copy.splice(0, 3));
+            expl = `✅ ${p4} poule(s) de 4 et ${p3} poule(s) de 3`;
+            break;
+          }
+        }
+      }
+
+      const generatedPools = best.map((pool, index) => ({
+        name: String.fromCharCode(65 + index),
+        teams: pool,
+        bracket: buildBracket(pool, pool.length)
+      }));
+
+      setPools(generatedPools);
+      localStorage.setItem('pools', JSON.stringify(generatedPools));
+      
+      // Réinitialiser les scores quand on génère de nouvelles poules
+      setScores({});
+      localStorage.removeItem(`scores_${tournamentId}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const buildBracket = (teams, poolSize) => {
+    if (!Array.isArray(teams) || teams.length !== poolSize) {
       return [];
     }
 
     if (poolSize === 4) {
-      const [A, B, C, D] = pool;
+      const [A, B, C, D] = teams;
       return [
         { num: 1, key: 'M1', teams: [A.members, B.members] },
         { num: 2, key: 'M2', teams: [C.members, D.members] },
@@ -77,7 +124,7 @@ const Home = () => {
         { num: 5, key: 'M5', type: 'mixed', fromWinner: 'M4', fromLoser: 'M3', label: '→ Qualifie le 2e' }
       ];
     } else if (poolSize === 3) {
-      const [A, B, C] = pool;
+      const [A, B, C] = teams;
       return [
         { num: 1, key: 'M1', teams: [A.members, B.members] },
         { num: 2, key: 'M2', type: 'winnerVsC', fromMatch: 'M1', teamC: C.members, label: 'Gagnant M1 vs C' },
@@ -85,78 +132,6 @@ const Home = () => {
       ];
     }
     return [];
-  };
-
-  useEffect(() => {
-    const loadSavedPools = async () => {
-      const savedPools = await loadPools(tournamentId);
-      if (savedPools.length > 0) {
-        setPools(savedPools);
-      }
-    };
-    loadSavedPools();
-  }, [tournamentId]);
-
-  const generatePools = async () => {
-    if (isGenerating) return;
-    setIsGenerating(true);
-    
-    // Filtrer les équipes valides
-    const validTeams = teams.filter(t => {
-      const [a, b] = t.members.split(' / ');
-      return a && b && a !== b && a.trim() && b.trim();
-    });
-
-    // Animation de "réflexion"
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Génération des poules
-    let s = [...validTeams].sort(() => Math.random() - 0.5);
-    const best = [];
-    let expl = '';
-
-    // Optimiser la répartition
-    for (let p4 = Math.floor(s.length / 4); p4 >= 0; p4--) {
-      const rem = s.length - p4 * 4;
-      if (rem % 3 === 0) {
-        const p3 = rem / 3;
-        let copy = [...s];
-        if (p4 + p3 > 0) {
-          for (let i = 0; i < p4; i++) best.push(copy.splice(0, 4));
-          for (let i = 0; i < p3; i++) best.push(copy.splice(0, 3));
-          expl = `✅ ${p4} poule(s) de 4 et ${p3} poule(s) de 3`;
-          break;
-        }
-      }
-    }
-
-    const generatedPools = best.map((pool, index) => ({
-      name: String.fromCharCode(65 + index),
-      teams: pool,
-      bracket: buildBracket(pool, pool.length)
-    }));
-
-    setPools(generatedPools);
-    await savePools(tournamentId, generatedPools);
-    setIsGenerating(false);
-    setDrawExplanation(expl);
-    setScores({});
-  };
-
-  const scoreKey = (pool, key) => `${pool}-${key}`;
-  const handleScoreChange = async (pool, key, side, v) => {
-    const newScores = {
-      ...scores,
-      [scoreKey(pool, key)]: { ...(scores[scoreKey(pool, key)] || {}), [side]: v }
-    };
-    setScores(newScores);
-
-    // Sauvegarder automatiquement
-    try {
-      await saveScores(tournamentId, newScores);
-    } catch (error) {
-      console.error('Error saving score:', error);
-    }
   };
 
   const getMatchResult = (pool, matchKey) => {
@@ -326,20 +301,6 @@ const Home = () => {
     }
   };
 
-  const handleClearPools = async () => {
-    if (window.confirm('Êtes-vous sûr de vouloir effacer toutes les poules et les scores ?')) {
-      const deleted = await deleteScores(tournamentId);
-      if (deleted) {
-        setPools([]);
-        setScores({});
-        setQualifiedTeams([]);
-        localStorage.removeItem('pools');
-      } else {
-        alert('Erreur lors de la suppression des scores');
-      }
-    }
-  };
-
   const handleSubmit = async (teamData) => {
     try {
       const processedData = {
@@ -364,32 +325,27 @@ const Home = () => {
 
   const handleTeamEdit = async (teamData) => {
     try {
-      await updateTeam(teamData.id, {
+      const updatedTeam = {
+        id: teamData.id,
         name: teamData.members,
         members: teamData.members
-      });
-      setTeams(currentTeams => 
-        currentTeams.map(team => 
-          team.id === teamData.id ? {...team, members: teamData.members} : team
-        )
+      };
+
+      const response = await updateTeam(teamData.id, updatedTeam);
+      if (!response) throw new Error('Erreur serveur');
+
+      // Mise à jour locale
+      const newTeams = teams.map(team => 
+        team.id === teamData.id ? updatedTeam : team
       );
+      
+      setTeams(newTeams);
+      localStorage.setItem('teams', JSON.stringify(newTeams));
     } catch (error) {
       console.error('Erreur lors de la modification:', error);
-      throw error;
+      throw error; // Permettre à TeamItem de gérer l'erreur
     }
   };
-
-  // Ajouter cet effet pour charger les scores au démarrage
-  useEffect(() => {
-    const loadSavedScores = async () => {
-      if (pools.length > 0) {
-        const savedScores = await loadScores(tournamentId);
-        setScores(savedScores);
-      }
-    };
-    
-    loadSavedScores();
-  }, [pools.length, tournamentId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-3 sm:p-6">
