@@ -6,6 +6,8 @@ import { savePools, loadPools } from '../services/poolService';
 import TeamForm from '../components/TeamForm';
 import TeamItem from '../components/TeamItem';
 import FinalBracket from '../components/FinalBracket';
+import LeagueTable from '../components/LeagueTable';
+import TournamentTypeSelector from '../components/TournamentTypeSelector';
 
 const Home = () => {
   const [tournamentId] = useState(() => localStorage.getItem('tournamentId') || Date.now().toString());
@@ -15,6 +17,7 @@ const Home = () => {
     const saved = localStorage.getItem('scores');
     return saved ? JSON.parse(saved) : {};
   });
+  // État des équipes en tableau simple
   const [teams, setTeams] = useState(() => {
     const savedTeams = localStorage.getItem('teams');
     return savedTeams ? JSON.parse(savedTeams) : [];
@@ -30,6 +33,11 @@ const Home = () => {
   const [showTeamSummary, setShowTeamSummary] = useState(false);
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
   const [finalScores, setFinalScores] = useState({});
+  const [activeTab, setActiveTab] = useState('tournament'); // Ajoutez cet état
+  const [tournamentType, setTournamentType] = useState(() => {
+    const saved = localStorage.getItem('tournamentType');
+    return saved ? JSON.parse(saved) : { id: 'double', name: 'Doublette', players: 2 };
+  });
 
   const scoreKey = (pool, key) => `${pool}-${key}`;
 
@@ -58,16 +66,28 @@ const Home = () => {
     }
   };
 
+  const handleTypeChange = (type) => {
+    setTournamentType(type);
+    localStorage.setItem('tournamentType', JSON.stringify(type));
+  };
+
+  const validateTeam = (teamData) => {
+    const members = teamData.members.split(' / ');
+    return (
+      members.length === tournamentType.players &&
+      members.every(m => m && m.trim()) &&
+      new Set(members).size === members.length
+    );
+  };
+
+  // Modifier la fonction generatePools pour utiliser validateTeam
   const generatePools = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
 
     try {
       // Filtrer les équipes valides
-      const validTeams = teams.filter(t => {
-        const [a, b] = t.members.split(' / ');
-        return a && b && a !== b && a.trim() && b.trim();
-      });
+      const validTeams = teams.filter(validateTeam);
 
       // Animation de "réflexion"
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -306,7 +326,7 @@ const Home = () => {
       const processedData = {
         ...teamData,
         name: teamData.members,
-        members: teamData.members,
+        members: teamData.members
       };
 
       if (teamData.id) {
@@ -325,255 +345,212 @@ const Home = () => {
 
   const handleTeamEdit = async (teamData) => {
     try {
-      const updatedTeam = {
-        id: teamData.id,
+      const processedData = {
+        ...teamData,
         name: teamData.members,
         members: teamData.members
       };
 
-      const response = await updateTeam(teamData.id, updatedTeam);
-      if (!response) throw new Error('Erreur serveur');
-
-      // Mise à jour locale
-      const newTeams = teams.map(team => 
-        team.id === teamData.id ? updatedTeam : team
+      await updateTeam(teamData.id, processedData);
+      // Mettre à jour localement
+      setTeams(currentTeams => 
+        currentTeams.map(team => 
+          team.id === teamData.id ? processedData : team
+        )
       );
-      
-      setTeams(newTeams);
-      localStorage.setItem('teams', JSON.stringify(newTeams));
+      setEditTeam(null);
+      localStorage.setItem('teams', JSON.stringify(teams));
     } catch (error) {
       console.error('Erreur lors de la modification:', error);
-      throw error; // Permettre à TeamItem de gérer l'erreur
+      alert('Erreur lors de la modification');
     }
   };
 
+  const handleTeamDelete = async (teamId) => {
+    if (window.confirm('Voulez-vous vraiment supprimer cette équipe ?')) {
+      try {
+        const response = await deleteTeam(teamId);
+        if (response) {
+          // Mise à jour locale après suppression réussie
+          const newTeams = teams.filter(team => team.id !== teamId);
+          setTeams(newTeams);
+          localStorage.setItem('teams', JSON.stringify(newTeams));
+        }
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        alert('Erreur lors de la suppression');
+      }
+    }
+  };
+
+  // Fonction utilitaire pour obtenir les équipes du type actuel
+  const getCurrentTeams = () => teams[tournamentType.id] || [];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-3 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header et Form existants */}
-        <h1 className="text-2xl sm:text-4xl font-bold text-center text-primary-800 mb-6">
-          Tournoi de Pétanque
-        </h1>
+    <div className="space-y-6">
+      <TournamentTypeSelector 
+        selectedType={tournamentType}
+        onTypeChange={handleTypeChange}
+      />
+      <TeamForm 
+        onSubmit={handleSubmit}
+        editTeam={editTeam}
+        tournamentType={tournamentType}
+      />
+      {/* Actions Buttons */}
+      <div className="flex flex-wrap justify-center gap-3 my-6">
+        <button
+          onClick={() => setShowTeamSummary(true)}
+          className="px-6 py-3 bg-white text-gray-700 rounded-xl shadow hover:shadow-lg
+                   transition-all duration-300 flex items-center gap-2"
+        >
+          <span>📋</span> Récapitulatif
+        </button>
+        
+        <button
+          onClick={generatePools}
+          disabled={isGenerating || !teams?.length || pools.length > 0}
+          className={`px-6 py-3 ${
+            pools.length > 0 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-blue-500 hover:bg-blue-600'
+          } text-white rounded-xl shadow-lg transition-all duration-300 flex items-center gap-2`}
+        >
+          <span>🎲</span> 
+          {pools.length > 0 
+            ? 'Poules déjà générées' 
+            : 'Générer les poules'
+          }
+        </button>
 
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <TeamForm 
-            onSubmit={handleSubmit} 
-            editTeam={editTeam}
-            className="max-w-xl mx-auto" 
-          />
-        </div>
-
-        {/* Actions Buttons */}
-        <div className="flex flex-wrap justify-center gap-3 my-6">
+        {teams?.length > 0 && (
           <button
-            onClick={() => setShowTeamSummary(true)}
-            className="px-6 py-3 bg-white text-gray-700 rounded-xl shadow hover:shadow-lg
+            onClick={async () => {
+              if (window.confirm('Supprimer toutes les équipes ?')) {
+                try {
+                  await deleteAllTeams();
+                  setTeams([]);
+                  setPools([]);
+                  setQualifiedTeams([]);
+                  setScores({});
+                } catch (error) {
+                  console.error('Erreur:', error);
+                  alert('Erreur lors de la suppression');
+                }
+              }
+            }}
+            className="px-6 py-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600
                      transition-all duration-300 flex items-center gap-2"
           >
-            <span>📋</span> Récapitulatif
+            <span>🗑️</span> Tout supprimer
           </button>
-          
-          <button
-            onClick={generatePools}
-            disabled={isGenerating || !teams?.length || pools.length > 0}
-            className={`px-6 py-3 ${
-              pools.length > 0 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-500 hover:bg-blue-600'
-            } text-white rounded-xl shadow-lg transition-all duration-300 flex items-center gap-2`}
-          >
-            <span>🎲</span> 
-            {pools.length > 0 
-              ? 'Poules déjà générées' 
-              : 'Générer les poules'
-            }
-          </button>
+        )}
+      </div>
 
-          {teams?.length > 0 && (
-            <button
-              onClick={async () => {
-                if (window.confirm('Supprimer toutes les équipes ?')) {
-                  try {
-                    await deleteAllTeams();
-                    setTeams([]);
-                    setPools([]);
-                    setQualifiedTeams([]);
-                    setScores({});
-                  } catch (error) {
-                    console.error('Erreur:', error);
-                    alert('Erreur lors de la suppression');
-                  }
-                }
-              }}
-              className="px-6 py-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600
-                       transition-all duration-300 flex items-center gap-2"
-            >
-              <span>🗑️</span> Tout supprimer
-            </button>
-          )}
+      {/* Teams List - Modifier pour n'afficher que les équipes du type actuel */}
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4">
+          Équipes {tournamentType.name} ({getCurrentTeams().length || 0})
+        </h2>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {getCurrentTeams().map(team => (
+            <TeamItem
+              key={team.id}
+              team={team}
+              onEdit={handleTeamEdit}
+              onDelete={() => handleTeamDelete(team.id)}
+            />
+          ))}
         </div>
+      </div>
 
-        {/* Teams List */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">
-            Équipes ({teams?.length || 0})
-          </h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {teams?.map(team => (
-              <TeamItem
-                key={team.id}
-                team={team}
-                onEdit={handleTeamEdit}
-                onDelete={async () => {
-                  try {
-                    await deleteTeam(team.id);
-                    setTeams(teams.filter(t => t.id !== team.id));
-                  } catch (error) {
-                    console.error('Erreur:', error);
-                    alert('Erreur lors de la suppression');
-                  }
-                }}
-              />
+      {/* Modal Récapitulatif */}
+      {showTeamSummary && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Récapitulatif des équipes</h3>
+              <button
+                onClick={() => setShowTeamSummary(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              {teams?.map((team, index) => (
+                <div key={team.id} className="p-3 bg-gray-50 rounded-lg">
+                  {index + 1}. {team.members}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pools Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {pools.map((pool, index) => (
+          <div
+            key={pool.name}
+            className="bg-white rounded-xl shadow-lg p-4 sm:p-6 transform transition-all duration-300 hover:shadow-xl"
+            style={{
+              animationDelay: `${index * 150}ms`
+            }}
+          >
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2">
+              <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full">
+                Poule {pool.name}
+              </span>
+            </h3>
+            {pool.bracket.map(match => (
+              <div key={match.key} className="mb-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-primary-600">
+                      {renderMatch(pool, match)}
+                    </span>
+                  </div>
+                  <div className="flex justify-center gap-4 items-center">
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-center"
+                      value={scores[scoreKey(pool.name, match.key)]?.score1 || ''}
+                      onChange={e => handleScoreChange(pool.name, match.key, 'score1', Number(e.target.value))}
+                    />
+                    <span className="text-xl font-bold text-primary-500">-</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-center"
+                      value={scores[scoreKey(pool.name, match.key)]?.score2 || ''}
+                      onChange={e => handleScoreChange(pool.name, match.key, 'score2', Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
+        ))}
+
+        {pools.length > 0 && (
+        <div className="flex justify-center gap-4 my-6">
+          <button
+            onClick={handleSaveScores}
+            className="px-6 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2"
+          >
+            💾 Sauvegarder les scores
+          </button>
+          <button
+            onClick={handleClearPools}
+            className="px-6 py-3 bg-red-600 text-white rounded-xl shadow-lg hover:bg-red-700 transition-all duration-300 flex items-center gap-2"
+          >
+            🗑️ Effacer les poules
+          </button>
         </div>
-
-        {/* Modal Récapitulatif */}
-        {showTeamSummary && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Récapitulatif des équipes</h3>
-                <button
-                  onClick={() => setShowTeamSummary(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-2">
-                {teams?.map((team, index) => (
-                  <div key={team.id} className="p-3 bg-gray-50 rounded-lg">
-                    {index + 1}. {team.members}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pools Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {pools.map((pool, index) => (
-            <div
-              key={pool.name}
-              className="bg-white rounded-xl shadow-lg p-4 sm:p-6 transform transition-all duration-300 hover:shadow-xl"
-              style={{
-                animationDelay: `${index * 150}ms`
-              }}
-            >
-              <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2">
-                <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full">
-                  Poule {pool.name}
-                </span>
-              </h3>
-              {pool.bracket.map(match => (
-                <div key={match.key} className="mb-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-primary-600">
-                        {renderMatch(pool, match)}
-                      </span>
-                    </div>
-                    <div className="flex justify-center gap-4 items-center">
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-16 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-center"
-                        value={scores[scoreKey(pool.name, match.key)]?.score1 || ''}
-                        onChange={e => handleScoreChange(pool.name, match.key, 'score1', Number(e.target.value))}
-                      />
-                      <span className="text-xl font-bold text-primary-500">-</span>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-16 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-center"
-                        value={scores[scoreKey(pool.name, match.key)]?.score2 || ''}
-                        onChange={e => handleScoreChange(pool.name, match.key, 'score2', Number(e.target.value))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-
-          {pools.length > 0 && (
-          <div className="flex justify-center gap-4 my-6">
-            <button
-              onClick={handleSaveScores}
-              className="px-6 py-3 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2"
-            >
-              💾 Sauvegarder les scores
-            </button>
-            <button
-              onClick={handleClearPools}
-              className="px-6 py-3 bg-red-600 text-white rounded-xl shadow-lg hover:bg-red-700 transition-all duration-300 flex items-center gap-2"
-            >
-              🗑️ Effacer les poules
-            </button>
-          </div>
-        )}
-        </div>
-
-        {/* Section des équipes qualifiées */}
-        {qualifiedTeams.length > 0 && (
-          <div className="mb-4 sm:mb-8 bg-gradient-to-r from-primary-100 to-accent-100 p-3 sm:p-6 rounded-xl shadow-lg">
-            <h2 className="text-xl sm:text-2xl font-bold text-primary-800 mb-3 sm:mb-4">
-              🏆 Équipes Qualifiées
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {qualifiedTeams.map((qualified, idx) => (
-                <div 
-                  key={idx}
-                  className="bg-white p-4 rounded-lg shadow-md transform hover:scale-105 transition-transform"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
-                      {qualified.rank === 1 ? '🥇' : '🥈'}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-primary-700">
-                        {qualified.team}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Poule {qualified.pool} - {qualified.rank === 1 ? '1er' : '2ème'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tableau final si suffisamment d'équipes qualifiées */}
-        {qualifiedTeams.length >= 16 && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold text-center mb-6">Phase Finale</h2>
-            <FinalBracket 
-              qualifiedTeams={qualifiedTeams}
-              scores={finalScores}
-              onScoreChange={(matchId, side, value) => {
-                setFinalScores(prev => ({
-                  ...prev,
-                  [matchId]: { ...(prev[matchId] || {}), [side]: value }
-                }));
-              }}
-            />
-          </div>
-        )}
+      )}
       </div>
     </div>
   );

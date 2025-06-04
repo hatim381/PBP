@@ -1,64 +1,70 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 
-const TeamForm = ({ onSubmit, editTeam }) => {
-  const [player1, setPlayer1] = useState("");
-  const [player2, setPlayer2] = useState("");
+const TeamForm = ({ onSubmit, editTeam, tournamentType }) => {
+  const [players, setPlayers] = useState(
+    Array(tournamentType?.players || 2).fill('')
+  );
 
   useEffect(() => {
     if (editTeam) {
-      const [p1, p2] = editTeam.members.split(" / ");
-      setPlayer1(p1 || "");
-      setPlayer2(p2 || "");
+      setPlayers(editTeam.members.split(' / '));
+    } else {
+      setPlayers(Array(tournamentType?.players || 2).fill(''));
     }
-  }, [editTeam]);
+  }, [editTeam, tournamentType]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!player1.trim() || !player2.trim()) {
-      alert("Les deux joueurs sont obligatoires");
-      return;
+
+    // Validation adaptée au format tête à tête
+    if (tournamentType.id === 'single') {
+      if (!players[0].trim()) {
+        alert('Veuillez entrer le nom du joueur');
+        return;
+      }
+    } else {
+      // Validation existante pour doublettes et triplettes
+      if (players.some(p => !p.trim())) {
+        alert('Veuillez remplir tous les noms des joueurs');
+        return;
+      }
     }
 
-    onSubmit({
-      id: editTeam?.id,
-      members: `${player1.trim()} / ${player2.trim()}`
-    });
-
-    setPlayer1("");
-    setPlayer2("");
+    try {
+      await onSubmit({
+        id: editTeam?.id,
+        members: tournamentType.id === 'single' ? players[0] : players.map(p => p.trim()).join(' / '),
+        type: tournamentType.id
+      });
+      
+      setPlayers(Array(tournamentType?.players || 2).fill(''));
+    } catch (error) {
+      alert('Erreur lors de l\'ajout');
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-4 sm:p-6 shadow-md space-y-4">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
-        {editTeam ? "Modifier l'équipe" : "Ajouter une équipe"}
-      </h2>
-
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {players.map((player, index) => (
         <input
+          key={index}
           type="text"
-          placeholder="Joueur 1"
-          value={player1}
-          onChange={(e) => setPlayer1(e.target.value)}
+          value={player}
+          onChange={(e) => {
+            const newPlayers = [...players];
+            newPlayers[index] = e.target.value;
+            setPlayers(newPlayers);
+          }}
+          placeholder={`Joueur ${index + 1}`}
+          className="w-full px-4 py-2 border rounded-lg"
           required
-          className="w-full px-3 sm:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
         />
-
-        <input
-          type="text"
-          placeholder="Joueur 2"
-          value={player2}
-          onChange={(e) => setPlayer2(e.target.value)}
-          required
-          className="w-full px-3 sm:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-        />
-      </div>
-
+      ))}
       <button
         type="submit"
-        className="w-full bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+        className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
       >
-        {editTeam ? "Modifier" : "Ajouter"}
+        {editTeam ? 'Modifier l\'équipe' : 'Ajouter l\'équipe'}
       </button>
     </form>
   );

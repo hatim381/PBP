@@ -1,30 +1,22 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 const TeamItem = ({ team, onEdit, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedMembers, setEditedMembers] = useState(team.members);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editValue, setEditValue] = useState(team.members);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const trimmedMembers = editedMembers.trim();
+    if (!editValue.trim()) return;
     
-    if (!trimmedMembers || trimmedMembers === team.members) {
-      setIsEditing(false);
-      setEditedMembers(team.members);
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
-      await onEdit({ ...team, members: trimmedMembers });
+      await onEdit({
+        ...team,
+        members: editValue.trim()
+      });
       setIsEditing(false);
     } catch (error) {
-      console.error('Erreur de modification:', error);
-      alert('Erreur lors de la modification');
-      setEditedMembers(team.members);
-    } finally {
-      setIsSubmitting(false);
+      console.error('Error editing team:', error);
+      alert('Erreur lors de la modification. Veuillez réessayer.');
     }
   };
 
@@ -34,26 +26,23 @@ const TeamItem = ({ team, onEdit, onDelete }) => {
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <input
             type="text"
-            value={editedMembers}
-            onChange={(e) => setEditedMembers(e.target.value)}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
             className="flex-grow px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
             autoFocus
-            disabled={isSubmitting}
           />
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className={`p-2 ${isSubmitting ? 'opacity-50' : 'text-green-600 hover:bg-green-50'} rounded transition-colors`}
+              className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
             >
-              {isSubmitting ? '⏳' : '✅'}
+              ✅
             </button>
             <button
               type="button"
-              disabled={isSubmitting}
               onClick={() => {
                 setIsEditing(false);
-                setEditedMembers(team.members);
+                setEditValue(team.members);
               }}
               className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
             >

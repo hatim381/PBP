@@ -20,16 +20,21 @@ const fetchWithRetry = async (url, options = {}, retries = 3) => {
 export const fetchTeams = async () => {
   try {
     const data = await fetchWithRetry(API_URL);
-    console.log('Teams fetched successfully:', data);
-    return data;
+    // Organiser les équipes par type
+    const organizedTeams = {
+      single: data.filter(team => team.type === 'single'),
+      double: data.filter(team => team.type === 'double'),
+      triple: data.filter(team => team.type === 'triple')
+    };
+    localStorage.setItem('teams', JSON.stringify(organizedTeams));
+    return organizedTeams;
   } catch (error) {
     console.error('Error fetching teams:', error);
-    // Utiliser les données du localStorage en cas d'échec
     const cachedTeams = localStorage.getItem('teams');
     if (cachedTeams) {
       return JSON.parse(cachedTeams);
     }
-    throw error;
+    return { single: [], double: [], triple: [] };
   }
 };
 
@@ -40,10 +45,19 @@ export const addTeam = async (teamData) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(teamData),
+      body: JSON.stringify(teamData)
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
+
+    if (!response.ok) throw new Error('Erreur lors de l\'ajout de l\'équipe');
+    
+    const newTeam = await response.json();
+    
+    // Mettre à jour le cache local
+    const teams = JSON.parse(localStorage.getItem('teams') || '{"single":[],"double":[],"triple":[]}');
+    teams[teamData.type] = [...teams[teamData.type], newTeam];
+    localStorage.setItem('teams', JSON.stringify(teams));
+    
+    return newTeam;
   } catch (error) {
     console.error('Add team error:', error);
     throw error;
@@ -52,19 +66,32 @@ export const addTeam = async (teamData) => {
 
 export const updateTeam = async (id, teamData) => {
   try {
-    const response = await fetch(`${API_URL}/${id}`, {
+    const team = {
+      id: id,
+      name: teamData.members,
+      members: teamData.members,
+      type: teamData.type || 'double'
+    };
+
+    const response = await fetchWithRetry(`${API_URL}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(teamData)
+      body: JSON.stringify(team)
     });
 
-    if (!response.ok) throw new Error('Erreur lors de la modification');
-    return await response.json();
+    // Mise à jour du cache local
+    const cachedTeams = JSON.parse(localStorage.getItem('teams') || '{"single":[],"double":[],"triple":[]}');
+    const typeTeams = cachedTeams[team.type] || [];
+    const updatedTeams = typeTeams.map(t => t.id === id ? response : t);
+    cachedTeams[team.type] = updatedTeams;
+    localStorage.setItem('teams', JSON.stringify(cachedTeams));
+
+    return response;
   } catch (error) {
     console.error('Update team error:', error);
-    throw error;
+    throw new Error('Impossible de modifier l\'équipe');
   }
 };
 
@@ -105,5 +132,49 @@ export const deleteAllTeams = async () => {
   } catch (error) {
     console.error('Delete all teams error:', error);
     throw new Error('Impossible de supprimer toutes les équipes');
+  }
+};
+
+export const initializeSinglePlayers = async () => {
+  const players = [
+    "Kourech Taheraly",
+    "Michaël Achikhoussen",
+    "Mourtaza Sadeccaly",
+    "Sadik Abasse",
+    "Naïm Taheraly",
+    "Danyal Moizaly",
+    "Mehboob Koytcha",
+    "Danyal Sadeccaly",
+    "Hatim Moïse",
+    "Adnane Sadeccaly",
+    "Anil Chopra",
+    "Moudar Akbaraly",
+    "Sheikh Houssen Akbaraly",
+    "Sabir Hassanbay",
+    "Johar Fatealy",
+    "Saifoudine Hassanaly",
+    "Azad Fassy",
+    "Moufadal Inathossene",
+    "Issac Ganivala",
+    "Keich Ganivala",
+    "Jamil Mamodaly",
+    "Hatim Sabir Divane",
+    "Sheikh Houssen Moshine",
+    "Sefoudine Fassy"
+  ];
+
+  try {
+    // Créer une équipe pour chaque joueur
+    for (const player of players) {
+      await addTeam({
+        members: player,
+        type: 'single',
+        name: player
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error('Error initializing single players:', error);
+    return false;
   }
 };
