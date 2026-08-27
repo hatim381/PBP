@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-navy-950: #071018;
+  --color-navy-900: #0b1c2c;
+  --color-navy-850: #102437;
+  --color-navy-800: #163044;
+  --color-navy-700: #1e4060;
+  --color-navy-600: #2a5478;
+  --color-navy-500: #3d6e96;
+
+  --color-sand-300: #e2d0b0;
+  --color-sand-400: #d4b896;
+  --color-sand-500: #c4a574;
+  --color-sand-600: #a88754;
+  --color-sand-700: #8a6c3f;
+
+  --color-cream: #f4ebd8;
+  --color-paper: #fbf7f0;
+  --color-ink: #0b1c2c;
+  --color-muted: #6b7c8c;
+  --color-muted-light: #8aa0b3;
+
+  --color-success: #3d8a6a;
+  --color-success-fg: #d8f0e4;
+  --color-danger: #b5524a;
+  --color-danger-fg: #f8d9d6;
+  --color-warn: #c4923a;
+  --color-warn-fg: #f7e7c8;
+  --color-live: #d4533a;
+
+  --color-background: #0b1c2c;
+  --color-foreground: #f4ebd8;
+  --color-card: #102437;
+  --color-card-foreground: #f4ebd8;
+  --color-popover: #163044;
+  --color-popover-foreground: #f4ebd8;
+  --color-primary: #c4a574;
+  --color-primary-foreground: #0b1c2c;
+  --color-secondary: #163044;
+  --color-secondary-foreground: #f4ebd8;
+  --color-accent: #c4a574;
+  --color-accent-foreground: #0b1c2c;
+  --color-destructive: #b5524a;
+  --color-border: rgb(244 235 216 / 12%);
+  --color-input: rgb(244 235 216 / 16%);
+  --color-ring: #c4a574;
+  --color-muted-foreground: #8aa0b3;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius: 12px;
+
+  --shadow-soft: 0 12px 40px rgb(7 16 24 / 28%);
+  --shadow-score: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 24px rgb(7 16 24 / 35%);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--color-navy-900);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  ::selection {
+    background: var(--color-sand-500);
+    color: var(--color-navy-900);
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Scoreboard digits */
+.score-digit {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.04em;
+}
+
+/* Subtle court texture for hero */
+.court-grain {
+  background-image:
+    radial-gradient(ellipse at 18% 20%, rgb(196 165 116 / 14%), transparent 46%),
+    radial-gradient(ellipse at 88% 80%, rgb(30 64 96 / 50%), transparent 42%);
+}
+
+.paper-page {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.paper-page ::selection {
+  background: var(--color-navy-900);
+  color: var(--color-cream);
+}

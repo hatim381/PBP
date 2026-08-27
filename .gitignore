@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+.output/
+.vercel/
+.tanstack/
+.nitro/
+*.tsbuildinfo
+
+# Logs
+*.log
+.grok/preview.log
+.grok/status
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# Coverage / caches
+coverage/
+.cache/
+.eslintcache
+
+# Local lock leftover
+.node_modules.lock

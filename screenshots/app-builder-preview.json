@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "PBP Concours",
+      "hasCanvas": false,
+      "bodyTextLen": 1058,
+      "bodyTextHash": "354ff13e98bc706943cce09cc9fa56f4e0c61f21036f22b3c00af865399ab176",
+      "bodyTextPrefix": "PBP Concours Accueil Concours Joueurs ASSOCIATION SPORTIVE · PAR",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "PBP Concours",
+      "hasCanvas": false,
+      "bodyTextLen": 1033,
+      "bodyTextHash": "8eebe2c779714d42dc54e5a2cb2c549474847b3c9e66881976b23ade78d060f6",
+      "bodyTextPrefix": "PBP Concours ASSOCIATION SPORTIVE · PARIS 17E Pétanque Bohra Par",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

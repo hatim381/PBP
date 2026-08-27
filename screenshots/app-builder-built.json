@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "PBP Concours",
+      "hasCanvas": false,
+      "bodyTextLen": 1523,
+      "bodyTextHash": "cc65e7ade04ba55ee9f8af918edc4174b1b89b2586b86ec576ae1b0154956a47",
+      "bodyTextPrefix": "PBP Concours Accueil Concours Joueurs Connexion ASSOCIATION SPOR",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "PBP Concours",
+      "hasCanvas": false,
+      "bodyTextLen": 1498,
+      "bodyTextHash": "a373b5d08d575425518c7eca7ff2a9ce22d723874852a27f5fe78270a4393884",
+      "bodyTextPrefix": "PBP Concours Connexion ASSOCIATION SPORTIVE · PARIS 17E Pétanque",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text changed (1058 -> 1523 chars, hash mismatch)",
+    "mobile: body text changed (1033 -> 1498 chars, hash mismatch)"
+  ]
+}
