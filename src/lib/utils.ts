@@ -40,3 +40,11 @@ export function initials(first: string, last: string): string {
 export function fullName(first: string, last: string): string {
   return `${first} ${last}`.trim();
 }
+
+/** Postgres text[] literal, portable across node-postgres and PGLite. */
+export function asPgTextArray(ids: string[]): string {
+  if (!ids.length) return "{}";
+  return `{${ids
+    .map((id) => `"${id.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+    .join(",")}}`;
+}

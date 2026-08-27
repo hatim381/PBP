@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Check, Dices, Plus, Search, Trash2 } from "lucide-react";
+import { Check, Dices, MapPin, Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BracketView } from "@/components/bracket-view";
@@ -25,12 +25,14 @@ import {
   listPlayersStaff,
   moveTeamPool,
   previewDraw,
+  registerSolo,
   saveScore,
+  setMatchCourt,
   setTournamentStatus,
   updateTeam,
   upsertPlayer,
 } from "@/lib/server/api-staff";
-import { playersPerTeam, STATUS_LABELS, type TournamentStatus } from "@/lib/engine/types";
+import { playersPerTeam, STATUS_LABELS, TEAM_STATUS_LABELS, type TournamentStatus } from "@/lib/engine/types";
 import type { Match, Team } from "@/lib/server/types";
 import { cn, fullName } from "@/lib/utils";
 import type { PoolProposal } from "@/lib/engine";
@@ -41,6 +43,7 @@ const TABS = [
   { id: "draw", label: "Tirage" },
   { id: "pools", label: "Poules" },
   { id: "matches", label: "Matchs" },
+  { id: "courts", label: "Terrains" },
   { id: "ranking", label: "Classement" },
   { id: "finals", label: "Finale" },
 ] as const;
@@ -108,6 +111,7 @@ export function TournamentWorkspace({ id }: { id: string }) {
       {tab === "draw" && <DrawPanel data={data} onDone={invalidate} />}
       {tab === "pools" && <PoolsPanel data={data} isAdmin={!!isAdmin} onDone={invalidate} />}
       {tab === "matches" && <MatchesPanel data={data} onDone={invalidate} />}
+      {tab === "courts" && <CourtsPanel data={data} onDone={invalidate} />}
       {tab === "ranking" && <RankingPanel data={data} onDone={invalidate} />}
       {tab === "finals" && <FinalsPanel data={data} />}
     </div>
@@ -131,21 +135,40 @@ function StatusActions({
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const actions: { label: string; next: TournamentStatus }[] = [];
+  const actions: { label: string; next: TournamentStatus; confirm?: string }[] = [];
   if (status === "draft") actions.push({ label: "Ouvrir les inscriptions", next: "registrations_open" });
   if (status === "registrations_open") {
     actions.push({ label: "Clôturer les inscriptions", next: "registrations_closed" });
   }
   if (status === "registrations_closed") actions.push({ label: "Préparer le tirage", next: "draw_pending" });
   if (status === "drawn") actions.push({ label: "Lancer les matchs", next: "in_progress" });
-  if (status === "in_progress") actions.push({ label: "Clôturer le concours", next: "finished" });
-  if (status === "finished") actions.push({ label: "Archiver", next: "archived" });
+  if (status === "in_progress") {
+    actions.push({
+      label: "Clôturer le concours",
+      next: "finished",
+      confirm: "Clôturer ce concours ? Les classements restent consultables.",
+    });
+  }
+  if (status === "finished") {
+    actions.push({
+      label: "Archiver",
+      next: "archived",
+      confirm: "Archiver ce concours ? Il restera visible dans l'historique.",
+    });
+  }
 
   if (!actions.length) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {actions.map((a) => (
-        <Button key={a.next} onClick={() => mut.mutate(a.next)} disabled={mut.isPending}>
+        <Button
+          key={a.next}
+          onClick={() => {
+            if (a.confirm && !window.confirm(a.confirm)) return;
+            mut.mutate(a.next);
+          }}
+          disabled={mut.isPending}
+        >
           {a.label}
         </Button>
       ))}
@@ -188,6 +211,7 @@ function TeamsPanel({
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | Team["status"]>("all");
   const [open, setOpen] = useState(false);
+  const [soloOpen, setSoloOpen] = useState(false);
   const validated = data.teams.filter((t) => t.status === "validated").length;
   const rows = data.teams.filter((t) => {
     if (filter !== "all" && t.status !== filter) return false;
@@ -214,9 +238,14 @@ function TeamsPanel({
           {validated} / {data.tournament.maxTeams}{" "}
           <span className="text-base font-sans text-muted-light">équipes validées</span>
         </p>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="size-4" /> Ajouter une équipe
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setSoloOpen(true)}>
+            <UserPlus className="size-4" /> Inscrire un joueur
+          </Button>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="size-4" /> Ajouter une équipe
+          </Button>
+        </div>
       </div>
       <div className="mb-3 flex flex-wrap gap-2">
         <div className="relative min-w-[12rem] flex-1">
@@ -230,7 +259,7 @@ function TeamsPanel({
             onClick={() => setFilter(f)}
             className={cn("rounded-full px-3 py-1.5 text-xs", filter === f ? "bg-sand-500 text-navy-900" : "bg-cream/10")}
           >
-            {f === "all" ? "Toutes" : f}
+            {f === "all" ? "Toutes" : TEAM_STATUS_LABELS[f]}
           </button>
         ))}
       </div>
@@ -251,7 +280,13 @@ function TeamsPanel({
                 <td className="px-3 py-3 font-mono text-sand-400">{team.number ?? "—"}</td>
                 <td className="px-3 py-3 font-medium">{team.name}</td>
                 <td className="px-3 py-3 text-muted-light">
-                  {team.players.map((p) => fullName(p.firstName, p.lastName)).join(" · ")}
+                  {team.players.length
+                    ? team.players.map((p) => fullName(p.firstName, p.lastName)).join(" · ")
+                    : "—"}
+                  {team.players.length > 0 &&
+                    team.players.length < playersPerTeam(data.tournament.teamFormat) && (
+                      <span className="ml-2 text-xs text-warn-fg">incomplète</span>
+                    )}
                 </td>
                 <td className="px-3 py-3">
                   <TeamStatusBadge status={team.status} />
@@ -285,6 +320,15 @@ function TeamsPanel({
         needed={playersPerTeam(data.tournament.teamFormat)}
         onDone={() => {
           setOpen(false);
+          onDone();
+        }}
+      />
+      <SoloDialog
+        open={soloOpen}
+        onOpenChange={setSoloOpen}
+        tournamentId={data.tournament.id}
+        onDone={() => {
+          setSoloOpen(false);
           onDone();
         }}
       />
@@ -400,6 +444,92 @@ function AddTeamDialog({
             Enregistrer l'équipe
           </Button>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SoloDialog({
+  open,
+  onOpenChange,
+  tournamentId,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  tournamentId: string;
+  onDone: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [newFirst, setNewFirst] = useState("");
+  const [newLast, setNewLast] = useState("");
+  const players = useQuery({
+    queryKey: ["players-staff", q],
+    queryFn: () => listPlayersStaff({ data: { q } }),
+    enabled: open,
+  });
+  const mut = useMutation({
+    mutationFn: (playerId: string) => registerSolo({ data: { tournamentId, playerId } }),
+    onSuccess: () => {
+      toast.success("Joueur inscrit, en attente d'équipier");
+      setPicked(null);
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const addPlayer = useMutation({
+    mutationFn: () => upsertPlayer({ data: { firstName: newFirst, lastName: newLast } }),
+    onSuccess: (p) => {
+      setPicked(p.id);
+      setNewFirst("");
+      setNewLast("");
+      void players.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Inscription individuelle</DialogTitle>
+          <DialogDescription>
+            Le joueur est placé en attente. Vous pourrez ensuite le rattacher à une équipe.
+          </DialogDescription>
+        </DialogHeader>
+        <Input placeholder="Rechercher un joueur" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="max-h-48 space-y-1 overflow-y-auto">
+          {(players.data ?? []).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPicked(p.id)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
+                picked === p.id ? "bg-sand-500 text-navy-900" : "hover:bg-cream/8",
+              )}
+            >
+              <span>{fullName(p.firstName, p.lastName)}</span>
+              <span className="text-xs opacity-70">{p.club}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <Input placeholder="Prénom" value={newFirst} onChange={(e) => setNewFirst(e.target.value)} />
+          <Input placeholder="Nom" value={newLast} onChange={(e) => setNewLast(e.target.value)} />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!newFirst.trim() || !newLast.trim()}
+            onClick={() => addPlayer.mutate()}
+          >
+            Créer
+          </Button>
+        </div>
+        <Button className="w-full" disabled={!picked || mut.isPending} onClick={() => picked && mut.mutate(picked)}>
+          Inscrire le joueur
+        </Button>
       </DialogContent>
     </Dialog>
   );
@@ -634,15 +764,144 @@ function MatchesPanel({
           {active && (
             <div className="space-y-3">
               <MatchStatusBadge status={active.status} />
+              <div className="flex items-center gap-2">
+                <MapPin className="size-3.5 text-muted-light" />
+                <Select
+                  value={active.courtId ?? "none"}
+                  onValueChange={(courtId) => {
+                    const next = courtId === "none" ? null : courtId;
+                    void setMatchCourt({ data: { matchId: active.id, courtId: next } }).then(() => {
+                      setActive({ ...active, courtId: next });
+                      onDone();
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue placeholder="Terrain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sans terrain</SelectItem>
+                    {data.courts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <ScorePad
                 match={active}
                 teams={data.teams}
                 targetPoints={data.tournament.targetPoints}
                 busy={mut.isPending}
                 onLive={(s1, s2) => mut.mutate({ matchId: active.id, score1: s1, score2: s2, live: true })}
-                onValidate={(s1, s2) => mut.mutate({ matchId: active.id, score1: s1, score2: s2 })}
+                onValidate={(s1, s2) => {
+                  if (!window.confirm(`Valider le résultat ${s1} – ${s2} ?`)) return;
+                  mut.mutate({ matchId: active.id, score1: s1, score2: s2 });
+                }}
               />
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CourtsPanel({
+  data,
+  onDone,
+}: {
+  data: NonNullable<Awaited<ReturnType<typeof getSnapshotStaff>>>;
+  onDone: () => void;
+}) {
+  const [active, setActive] = useState<Match | null>(null);
+  const mut = useMutation({
+    mutationFn: (p: { matchId: string; score1: number; score2: number; live?: boolean }) => saveScore({ data: p }),
+    onSuccess: () => {
+      toast.success("Score enregistré");
+      setActive(null);
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const unassigned = data.matches.filter((m) => !m.courtId && m.status !== "validated" && m.status !== "finished");
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-light">
+        Vue terrain — tapotez un match pour saisir le score. Idéal le jour du concours.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {data.courts.map((court) => {
+          const matches = data.matches.filter((m) => m.courtId === court.id);
+          const live = matches.filter((m) => m.status === "live");
+          const next = matches.filter((m) => m.status === "upcoming").slice(0, 2);
+          return (
+            <section key={court.id} className="rounded-2xl border border-cream/10 bg-navy-900 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-display text-xl">{court.name}</h3>
+                {live.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider text-live">
+                    <span className="size-1.5 animate-pulse rounded-full bg-live" />
+                    En cours
+                  </span>
+                )}
+              </div>
+              <div className="space-y-2">
+                {live.length === 0 && next.length === 0 && (
+                  <p className="text-xs text-muted-light">Libre</p>
+                )}
+                {[...live, ...next].map((m) => (
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    teams={data.teams}
+                    courts={data.courts}
+                    compact
+                    onClick={() => setActive(m)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      {unassigned.length > 0 && (
+        <section>
+          <h3 className="mb-3 font-display text-xl">Sans terrain</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {unassigned.slice(0, 8).map((m) => (
+              <MatchCard
+                key={m.id}
+                match={m}
+                teams={data.teams}
+                courts={data.courts}
+                compact
+                onClick={() => setActive(m)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+      <Dialog open={!!active} onOpenChange={(v) => !v && setActive(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Saisie du score</DialogTitle>
+            <DialogDescription>Partie en {data.tournament.targetPoints} points.</DialogDescription>
+          </DialogHeader>
+          {active && (
+            <ScorePad
+              match={active}
+              teams={data.teams}
+              targetPoints={data.tournament.targetPoints}
+              busy={mut.isPending}
+              onLive={(s1, s2) => mut.mutate({ matchId: active.id, score1: s1, score2: s2, live: true })}
+              onValidate={(s1, s2) => {
+                if (!window.confirm(`Valider le résultat ${s1} – ${s2} ?`)) return;
+                mut.mutate({ matchId: active.id, score1: s1, score2: s2 });
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>

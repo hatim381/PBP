@@ -16,6 +16,7 @@ import { mapPlayer, mapTournament, type PlayerRow, type TournamentRow } from "./
 import { loadSnapshot, loadTeams, loadTournament, nextTeamNumber } from "./queries";
 import { ensureSeed } from "./seed";
 import type { QualifiedTeam } from "@/lib/engine/types";
+import { asPgTextArray } from "@/lib/utils";
 
 async function staff(userId: string) {
   await ensureSeed();
@@ -253,8 +254,15 @@ export const createTeam = createServerFn({ method: "POST" })
     const t = await loadTournament(data.tournamentId);
     if (!t) throw new Error("Concours introuvable.");
     const needed = playersPerTeam(t.teamFormat);
-    if (data.playerIds.length !== needed) {
+    const status = data.status ?? "pending";
+    if (status === "validated" && data.playerIds.length !== needed) {
       throw new Error(`Une équipe ${t.teamFormat === "doublette" ? "doublette" : t.teamFormat === "triplette" ? "triplette" : "tête-à-tête"} doit compter exactement ${needed} joueur${needed > 1 ? "s" : ""}.`);
+    }
+    if (data.playerIds.length === 0) {
+      throw new Error("Ajoutez au moins un joueur.");
+    }
+    if (data.playerIds.length > needed) {
+      throw new Error(`Une équipe ne peut pas dépasser ${needed} joueur${needed > 1 ? "s" : ""}.`);
     }
     if (new Set(data.playerIds).size !== data.playerIds.length) {
       throw new Error("Un joueur ne peut pas apparaître deux fois dans la même équipe.");
@@ -266,7 +274,7 @@ export const createTeam = createServerFn({ method: "POST" })
       join teams te on te.id = tp.team_id
       where te.tournament_id = ${data.tournamentId}
         and te.status <> 'cancelled'
-        and tp.player_id = any(${data.playerIds}::text[])
+        and tp.player_id = any(${asPgTextArray(data.playerIds)}::text[])
     `;
     if (dup.length) {
       throw new Error("Un des joueurs est déjà inscrit à ce concours.");
@@ -294,6 +302,43 @@ export const createTeam = createServerFn({ method: "POST" })
     return { id };
   });
 
+export const registerSolo = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((data: { tournamentId: string; playerId: string }) => data)
+  .handler(async ({ context, data }) => {
+    await staff(context.userId);
+    const t = await loadTournament(data.tournamentId);
+    if (!t) throw new Error("Concours introuvable.");
+    if (!["draft", "registrations_open", "registrations_closed"].includes(t.status)) {
+      throw new Error("Les inscriptions individuelles sont fermées.");
+    }
+    const sql = await getSql();
+    const player = await sql<PlayerRow>`select * from players where id = ${data.playerId} limit 1`;
+    if (!player[0]) throw new Error("Joueur introuvable.");
+    const dup = await sql<{ player_id: string }>`
+      select tp.player_id
+      from team_players tp
+      join teams te on te.id = tp.team_id
+      where te.tournament_id = ${data.tournamentId}
+        and te.status <> 'cancelled'
+        and tp.player_id = ${data.playerId}
+    `;
+    if (dup.length) throw new Error("Ce joueur est déjà inscrit à ce concours.");
+    const id = crypto.randomUUID();
+    const number = await nextTeamNumber(data.tournamentId);
+    const name = `${player[0].last_name} (en attente d'équipier)`;
+    await sql`
+      insert into teams (id, tournament_id, name, number, status)
+      values (${id}, ${data.tournamentId}, ${name}, ${number}, 'pending')
+    `;
+    await sql`
+      insert into team_players (team_id, player_id, position)
+      values (${id}, ${data.playerId}, 1)
+    `;
+    await writeAudit(context.userId, "register_solo", "teams", id, { playerId: data.playerId });
+    return { id };
+  });
+
 export const updateTeam = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((data: { teamId: string; name?: string; playerIds?: string[]; status?: "pending" | "validated" | "refused" | "cancelled" }) => data)
@@ -308,6 +353,16 @@ export const updateTeam = createServerFn({ method: "POST" })
     if (!t) throw new Error("Concours introuvable.");
     if (data.name != null) {
       await sql`update teams set name = ${data.name.trim()} where id = ${data.teamId}`;
+    }
+    if (data.status === "validated") {
+      const needed = playersPerTeam(t.teamFormat);
+      const members = await sql<{ n: number }>`
+        select count(*)::int as n from team_players where team_id = ${data.teamId}
+      `;
+      const count = data.playerIds?.length ?? members[0]?.n ?? 0;
+      if (count !== needed) {
+        throw new Error(`Impossible de valider : l'équipe doit compter exactement ${needed} joueur${needed > 1 ? "s" : ""}.`);
+      }
     }
     if (data.status) {
       await sql`update teams set status = ${data.status} where id = ${data.teamId}`;

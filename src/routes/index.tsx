@@ -11,8 +11,16 @@ import { formatDateFr } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const [dash, list] = await Promise.all([dashboardPublic(), listTournaments()]);
-    return { dash, list };
+    try {
+      const [dash, list] = await Promise.all([dashboardPublic(), listTournaments()]);
+      return { dash, list };
+    } catch (err) {
+      console.error("[pbp] home loader", err);
+      return {
+        dash: { activeTournaments: 0, validatedTeams: 0, matchesDone: 0, matchesLive: 0, courts: 0 },
+        list: [],
+      };
+    }
   },
   component: Home,
 });

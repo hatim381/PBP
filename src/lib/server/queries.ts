@@ -3,6 +3,7 @@ import { rankTeams } from "@/lib/engine/ranking";
 import type { Standing, PlayedMatch } from "@/lib/engine/ranking";
 import { mapMatch, mapPlayer, mapTeam, mapTournament, type MatchRow, type PlayerRow, type TeamRow, type TournamentRow } from "./mappers";
 import type { Court, Match, Player, Pool, Team, Tournament } from "./types";
+import { asPgTextArray } from "@/lib/utils";
 
 export async function loadTournament(id: string): Promise<Tournament | null> {
   const sql = await getSql();
@@ -14,7 +15,7 @@ export async function loadPlayersByIds(ids: string[], publicView = false): Promi
   if (!ids.length) return [];
   const sql = await getSql();
   const rows = await sql<PlayerRow>`
-    select * from players where id = any(${ids}::text[])
+    select * from players where id = any(${asPgTextArray(ids)}::text[])
   `;
   return rows.map((r) => mapPlayer(r, publicView));
 }
@@ -33,7 +34,7 @@ export async function loadTeams(tournamentId: string): Promise<Team[]> {
     select tp.team_id, tp.player_id, tp.position, p.first_name, p.last_name, p.club
     from team_players tp
     join players p on p.id = tp.player_id
-    where tp.team_id = any(${ids}::text[])
+    where tp.team_id = any(${asPgTextArray(ids)}::text[])
     order by tp.position
   `;
   const byTeam = new Map<string, Team["players"]>();
@@ -62,7 +63,7 @@ export async function loadPools(tournamentId: string): Promise<Pool[]> {
   const ids = pools.map((p) => p.id);
   const members = await sql<{ pool_id: string; team_id: string; seed: number }>`
     select pool_id, team_id, seed from pool_teams
-    where pool_id = any(${ids}::text[])
+    where pool_id = any(${asPgTextArray(ids)}::text[])
     order by seed
   `;
   const byPool = new Map<string, string[]>();

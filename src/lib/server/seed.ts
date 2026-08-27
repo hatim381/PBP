@@ -81,15 +81,24 @@ export async function ensureSeed(): Promise<void> {
   }
   globalRef.__pbpSeed__ = (async () => {
     const sql = await getSql();
-    const existing = await sql<{ n: number }>`select count(*)::int as n from tournaments`;
-    if ((existing[0]?.n ?? 0) > 0) return;
+    const existing = await sql<{ id: string }>`
+      select id from tournaments
+      where id in ('t-gp-2026', 't-open-2026', 't-challenge-2026', 't-automne-2025')
+    `;
+    if (existing.length >= 4) return;
 
-    for (const p of PLAYERS) {
-      await sql`
-        insert into players (id, first_name, last_name, phone, email, license_number, club, status)
-        values (${p.id}, ${p.first}, ${p.last}, ${p.phone}, ${p.email}, ${p.license}, ${p.club}, 'active')
-      `;
-    }
+    const playerParams: unknown[] = [];
+    const playerRows = PLAYERS.map((p, i) => {
+      const b = i * 8;
+      playerParams.push(p.id, p.first, p.last, p.phone, p.email, p.license, p.club, "active");
+      return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8})`;
+    });
+    await sql.query(
+      `insert into players (id, first_name, last_name, phone, email, license_number, club, status)
+       values ${playerRows.join(",")}
+       on conflict (id) do nothing`,
+      playerParams,
+    );
 
     await seedGrandPrix(sql);
     await seedOpenRentree(sql);
@@ -133,11 +142,13 @@ async function insertTournament(
       ${t.venue}, ${t.address}, ${t.courts}, ${t.maxTeams}, ${t.format},
       'groups_then_knockout', ${t.groupSize}, ${t.qualified}, ${t.status}, ${t.rules}
     )
+    on conflict (id) do nothing
   `;
   for (let i = 1; i <= t.courts; i += 1) {
     await sql`
       insert into courts (id, tournament_id, name, number)
       values (${`${t.id}-c${i}`}, ${t.id}, ${`Terrain ${i}`}, ${i})
+      on conflict (id) do nothing
     `;
   }
 }
@@ -154,11 +165,13 @@ async function insertTeam(
   await sql`
     insert into teams (id, tournament_id, name, number, status)
     values (${id}, ${tournamentId}, ${name}, ${index}, ${status})
+    on conflict (id) do nothing
   `;
   for (let i = 0; i < playerIds.length; i += 1) {
     await sql`
       insert into team_players (team_id, player_id, position)
       values (${id}, ${playerIds[i]!}, ${i + 1})
+      on conflict (team_id, player_id) do nothing
     `;
   }
   return id;
@@ -166,6 +179,8 @@ async function insertTeam(
 
 async function seedGrandPrix(sql: Sql) {
   const id = "t-gp-2026";
+  const done = await sql<{ n: number }>`select count(*)::int as n from matches where tournament_id = ${id}`;
+  if ((done[0]?.n ?? 0) > 0) return;
   await insertTournament(sql, {
     id,
     name: "Grand Prix PBP 2026",
@@ -218,11 +233,13 @@ async function seedGrandPrix(sql: Sql) {
     await sql`
       insert into pools (id, tournament_id, name, letter)
       values (${poolId}, ${id}, ${`Poule ${letter}`}, ${letter})
+      on conflict (id) do nothing
     `;
     for (let s = 0; s < groups[i]!.length; s += 1) {
       await sql`
         insert into pool_teams (pool_id, team_id, seed)
         values (${poolId}, ${groups[i]![s]!}, ${s + 1})
+        on conflict (pool_id, team_id) do nothing
       `;
     }
   }
@@ -295,12 +312,15 @@ async function seedGrandPrix(sql: Sql) {
         ${`${String(hour).padStart(2, "0")}:00`},
         ${winner}
       )
+      on conflict (id) do nothing
     `;
   }
 }
 
 async function seedOpenRentree(sql: Sql) {
   const id = "t-open-2026";
+  const done = await sql<{ n: number }>`select count(*)::int as n from teams where tournament_id = ${id}`;
+  if ((done[0]?.n ?? 0) > 0) return;
   await insertTournament(sql, {
     id,
     name: "Open Triplette de rentrée",
@@ -341,6 +361,8 @@ async function seedOpenRentree(sql: Sql) {
 
 async function seedChallengeExpress(sql: Sql) {
   const id = "t-challenge-2026";
+  const done = await sql<{ n: number }>`select count(*)::int as n from teams where tournament_id = ${id}`;
+  if ((done[0]?.n ?? 0) > 0) return;
   await insertTournament(sql, {
     id,
     name: "Challenge Express",
@@ -374,6 +396,8 @@ async function seedChallengeExpress(sql: Sql) {
 
 async function seedTropheeAutomne(sql: Sql) {
   const id = "t-automne-2025";
+  const done = await sql<{ n: number }>`select count(*)::int as n from matches where tournament_id = ${id} and phase = 'final'`;
+  if ((done[0]?.n ?? 0) > 0) return;
   await insertTournament(sql, {
     id,
     name: "Trophée d'Automne 2025",
@@ -414,11 +438,13 @@ async function seedTropheeAutomne(sql: Sql) {
     await sql`
       insert into pools (id, tournament_id, name, letter)
       values (${poolId}, ${id}, ${`Poule ${letters[i]}`}, ${letters[i]!})
+      on conflict (id) do nothing
     `;
     for (let s = 0; s < groups[i]!.length; s += 1) {
       await sql`
         insert into pool_teams (pool_id, team_id, seed)
         values (${poolId}, ${groups[i]![s]!}, ${s + 1})
+        on conflict (pool_id, team_id) do nothing
       `;
     }
   }
@@ -442,6 +468,7 @@ async function seedTropheeAutomne(sql: Sql) {
             ${`${id}-m-${n}`}, ${id}, 'pool', ${poolIds[p]!}, ${round.round},
             ${t1}, ${t2}, ${s1}, ${s2}, 'validated', ${`${id}-c${(n % 4) + 1}`}, ${winner}
           )
+          on conflict (id) do nothing
         `;
       }
     }
@@ -472,6 +499,7 @@ async function seedTropheeAutomne(sql: Sql) {
         ${t1}, ${t2}, 13, 8, 'validated', ${`${id}-c1`}, ${winner},
         ${node.nextMatchId}, ${node.nextMatchSlot}, ${node.placeholder1}, ${node.placeholder2}
       )
+      on conflict (id) do nothing
     `;
   }
   if (final) {
@@ -488,6 +516,7 @@ async function seedTropheeAutomne(sql: Sql) {
         ${t1}, ${t2}, 13, 10, 'validated', ${`${id}-c1`}, ${champion},
         ${final.placeholder1}, ${final.placeholder2}
       )
+      on conflict (id) do nothing
     `;
     await sql`update tournaments set winner_team_id = ${champion}, status = 'archived' where id = ${id}`;
   }
