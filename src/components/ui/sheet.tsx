@@ -27,7 +27,11 @@ export function SheetContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 grid size-9 place-items-center rounded-md text-cream/60 hover:bg-cream/8">
+        <DialogPrimitive.Title className="sr-only">Menu</DialogPrimitive.Title>
+        <DialogPrimitive.Close
+          className="absolute right-3 top-3 grid size-9 place-items-center rounded-md text-cream/60 hover:bg-cream/8"
+          aria-label="Fermer le menu"
+        >
           <X className="size-4" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>

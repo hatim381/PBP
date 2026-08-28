@@ -11,8 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/app/route'
+import { Route as AssociationRouteImport } from './routes/association'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as InscriptionsRouteImport } from './routes/inscriptions'
 import { Route as JoueursRouteImport } from './routes/joueurs'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResultatsRouteImport } from './routes/resultats'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppJoueursRouteImport } from './routes/app/joueurs'
 import { Route as AppParametresRouteImport } from './routes/app/parametres'
@@ -25,6 +29,8 @@ import { Route as AppConcoursIdRouteImport } from './routes/app/concours/$id'
 import { Route as AppConcoursNouveauRouteImport } from './routes/app/concours/nouveau'
 import { Route as ConcoursIdIndexRouteImport } from './routes/concours/$id/index'
 import { Route as ConcoursIdClassementRouteImport } from './routes/concours/$id/classement'
+import { Route as ConcoursIdEquipeRouteImport } from './routes/concours/$id/equipe'
+import { Route as ConcoursIdInscriptionRouteImport } from './routes/concours/$id/inscription'
 import { Route as ConcoursIdLiveRouteImport } from './routes/concours/$id/live'
 import { Route as ConcoursIdMatchsRouteImport } from './routes/concours/$id/matchs'
 import { Route as ConcoursIdPoulesRouteImport } from './routes/concours/$id/poules'
@@ -40,6 +46,21 @@ const AppRouteRoute = AppRouteRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssociationRoute = AssociationRouteImport.update({
+  id: '/association',
+  path: '/association',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InscriptionsRoute = InscriptionsRouteImport.update({
+  id: '/inscriptions',
+  path: '/inscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoueursRoute = JoueursRouteImport.update({
   id: '/joueurs',
   path: '/joueurs',
@@ -48,6 +69,11 @@ const JoueursRoute = JoueursRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultatsRoute = ResultatsRouteImport.update({
+  id: '/resultats',
+  path: '/resultats',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -110,6 +136,16 @@ const ConcoursIdClassementRoute = ConcoursIdClassementRouteImport.update({
   path: '/classement',
   getParentRoute: () => ConcoursIdRouteRoute,
 } as any)
+const ConcoursIdEquipeRoute = ConcoursIdEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
+  getParentRoute: () => ConcoursIdRouteRoute,
+} as any)
+const ConcoursIdInscriptionRoute = ConcoursIdInscriptionRouteImport.update({
+  id: '/inscription',
+  path: '/inscription',
+  getParentRoute: () => ConcoursIdRouteRoute,
+} as any)
 const ConcoursIdLiveRoute = ConcoursIdLiveRouteImport.update({
   id: '/live',
   path: '/live',
@@ -134,8 +170,12 @@ const ConcoursIdTableauRoute = ConcoursIdTableauRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/association': typeof AssociationRoute
+  '/contact': typeof ContactRoute
+  '/inscriptions': typeof InscriptionsRoute
   '/joueurs': typeof JoueursRoute
   '/login': typeof LoginRoute
+  '/resultats': typeof ResultatsRoute
   '/concours/$id': typeof ConcoursIdRouteRouteWithChildren
   '/app/joueurs': typeof AppJoueursRoute
   '/app/parametres': typeof AppParametresRoute
@@ -146,6 +186,8 @@ export interface FileRoutesByFullPath {
   '/app/concours/$id': typeof AppConcoursIdRoute
   '/app/concours/nouveau': typeof AppConcoursNouveauRoute
   '/concours/$id/classement': typeof ConcoursIdClassementRoute
+  '/concours/$id/equipe': typeof ConcoursIdEquipeRoute
+  '/concours/$id/inscription': typeof ConcoursIdInscriptionRoute
   '/concours/$id/live': typeof ConcoursIdLiveRoute
   '/concours/$id/matchs': typeof ConcoursIdMatchsRoute
   '/concours/$id/poules': typeof ConcoursIdPoulesRoute
@@ -155,8 +197,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/association': typeof AssociationRoute
+  '/contact': typeof ContactRoute
+  '/inscriptions': typeof InscriptionsRoute
   '/joueurs': typeof JoueursRoute
   '/login': typeof LoginRoute
+  '/resultats': typeof ResultatsRoute
   '/app/joueurs': typeof AppJoueursRoute
   '/app/parametres': typeof AppParametresRoute
   '/app/statistiques': typeof AppStatistiquesRoute
@@ -166,6 +212,8 @@ export interface FileRoutesByTo {
   '/app/concours/$id': typeof AppConcoursIdRoute
   '/app/concours/nouveau': typeof AppConcoursNouveauRoute
   '/concours/$id/classement': typeof ConcoursIdClassementRoute
+  '/concours/$id/equipe': typeof ConcoursIdEquipeRoute
+  '/concours/$id/inscription': typeof ConcoursIdInscriptionRoute
   '/concours/$id/live': typeof ConcoursIdLiveRoute
   '/concours/$id/matchs': typeof ConcoursIdMatchsRoute
   '/concours/$id/poules': typeof ConcoursIdPoulesRoute
@@ -177,8 +225,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/association': typeof AssociationRoute
+  '/contact': typeof ContactRoute
+  '/inscriptions': typeof InscriptionsRoute
   '/joueurs': typeof JoueursRoute
   '/login': typeof LoginRoute
+  '/resultats': typeof ResultatsRoute
   '/concours/$id': typeof ConcoursIdRouteRouteWithChildren
   '/app/joueurs': typeof AppJoueursRoute
   '/app/parametres': typeof AppParametresRoute
@@ -189,6 +241,8 @@ export interface FileRoutesById {
   '/app/concours/$id': typeof AppConcoursIdRoute
   '/app/concours/nouveau': typeof AppConcoursNouveauRoute
   '/concours/$id/classement': typeof ConcoursIdClassementRoute
+  '/concours/$id/equipe': typeof ConcoursIdEquipeRoute
+  '/concours/$id/inscription': typeof ConcoursIdInscriptionRoute
   '/concours/$id/live': typeof ConcoursIdLiveRoute
   '/concours/$id/matchs': typeof ConcoursIdMatchsRoute
   '/concours/$id/poules': typeof ConcoursIdPoulesRoute
@@ -201,8 +255,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/association'
+    | '/contact'
+    | '/inscriptions'
     | '/joueurs'
     | '/login'
+    | '/resultats'
     | '/concours/$id'
     | '/app/joueurs'
     | '/app/parametres'
@@ -213,6 +271,8 @@ export interface FileRouteTypes {
     | '/app/concours/$id'
     | '/app/concours/nouveau'
     | '/concours/$id/classement'
+    | '/concours/$id/equipe'
+    | '/concours/$id/inscription'
     | '/concours/$id/live'
     | '/concours/$id/matchs'
     | '/concours/$id/poules'
@@ -222,8 +282,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/association'
+    | '/contact'
+    | '/inscriptions'
     | '/joueurs'
     | '/login'
+    | '/resultats'
     | '/app/joueurs'
     | '/app/parametres'
     | '/app/statistiques'
@@ -233,6 +297,8 @@ export interface FileRouteTypes {
     | '/app/concours/$id'
     | '/app/concours/nouveau'
     | '/concours/$id/classement'
+    | '/concours/$id/equipe'
+    | '/concours/$id/inscription'
     | '/concours/$id/live'
     | '/concours/$id/matchs'
     | '/concours/$id/poules'
@@ -243,8 +309,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/association'
+    | '/contact'
+    | '/inscriptions'
     | '/joueurs'
     | '/login'
+    | '/resultats'
     | '/concours/$id'
     | '/app/joueurs'
     | '/app/parametres'
@@ -255,6 +325,8 @@ export interface FileRouteTypes {
     | '/app/concours/$id'
     | '/app/concours/nouveau'
     | '/concours/$id/classement'
+    | '/concours/$id/equipe'
+    | '/concours/$id/inscription'
     | '/concours/$id/live'
     | '/concours/$id/matchs'
     | '/concours/$id/poules'
@@ -266,8 +338,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  AssociationRoute: typeof AssociationRoute
+  ContactRoute: typeof ContactRoute
+  InscriptionsRoute: typeof InscriptionsRoute
   JoueursRoute: typeof JoueursRoute
   LoginRoute: typeof LoginRoute
+  ResultatsRoute: typeof ResultatsRoute
   ConcoursIdRouteRoute: typeof ConcoursIdRouteRouteWithChildren
   ConcoursIndexRoute: typeof ConcoursIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -289,6 +365,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/association': {
+      id: '/association'
+      path: '/association'
+      fullPath: '/association'
+      preLoaderRoute: typeof AssociationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inscriptions': {
+      id: '/inscriptions'
+      path: '/inscriptions'
+      fullPath: '/inscriptions'
+      preLoaderRoute: typeof InscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/joueurs': {
       id: '/joueurs'
       path: '/joueurs'
@@ -301,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resultats': {
+      id: '/resultats'
+      path: '/resultats'
+      fullPath: '/resultats'
+      preLoaderRoute: typeof ResultatsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -387,6 +491,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConcoursIdClassementRouteImport
       parentRoute: typeof ConcoursIdRouteRoute
     }
+    '/concours/$id/equipe': {
+      id: '/concours/$id/equipe'
+      path: '/equipe'
+      fullPath: '/concours/$id/equipe'
+      preLoaderRoute: typeof ConcoursIdEquipeRouteImport
+      parentRoute: typeof ConcoursIdRouteRoute
+    }
+    '/concours/$id/inscription': {
+      id: '/concours/$id/inscription'
+      path: '/inscription'
+      fullPath: '/concours/$id/inscription'
+      preLoaderRoute: typeof ConcoursIdInscriptionRouteImport
+      parentRoute: typeof ConcoursIdRouteRoute
+    }
     '/concours/$id/live': {
       id: '/concours/$id/live'
       path: '/live'
@@ -444,6 +562,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 interface ConcoursIdRouteRouteChildren {
   ConcoursIdClassementRoute: typeof ConcoursIdClassementRoute
+  ConcoursIdEquipeRoute: typeof ConcoursIdEquipeRoute
+  ConcoursIdInscriptionRoute: typeof ConcoursIdInscriptionRoute
   ConcoursIdLiveRoute: typeof ConcoursIdLiveRoute
   ConcoursIdMatchsRoute: typeof ConcoursIdMatchsRoute
   ConcoursIdPoulesRoute: typeof ConcoursIdPoulesRoute
@@ -453,6 +573,8 @@ interface ConcoursIdRouteRouteChildren {
 
 const ConcoursIdRouteRouteChildren: ConcoursIdRouteRouteChildren = {
   ConcoursIdClassementRoute: ConcoursIdClassementRoute,
+  ConcoursIdEquipeRoute: ConcoursIdEquipeRoute,
+  ConcoursIdInscriptionRoute: ConcoursIdInscriptionRoute,
   ConcoursIdLiveRoute: ConcoursIdLiveRoute,
   ConcoursIdMatchsRoute: ConcoursIdMatchsRoute,
   ConcoursIdPoulesRoute: ConcoursIdPoulesRoute,
@@ -467,8 +589,12 @@ const ConcoursIdRouteRouteWithChildren = ConcoursIdRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
+  AssociationRoute: AssociationRoute,
+  ContactRoute: ContactRoute,
+  InscriptionsRoute: InscriptionsRoute,
   JoueursRoute: JoueursRoute,
   LoginRoute: LoginRoute,
+  ResultatsRoute: ResultatsRoute,
   ConcoursIdRouteRoute: ConcoursIdRouteRouteWithChildren,
   ConcoursIndexRoute: ConcoursIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

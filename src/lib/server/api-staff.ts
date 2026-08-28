@@ -6,6 +6,8 @@ import { distributeTeams, proposePoolConfigs } from "@/lib/engine/pools";
 import { roundRobinPairs, validateScores } from "@/lib/engine/matches";
 import { poolLetters, shuffle } from "@/lib/engine/rng";
 import {
+  formatLabel,
+  isDrawLockedStatus,
   playersPerTeam,
   type RankingCriterion,
   type TeamFormat,
@@ -13,7 +15,7 @@ import {
 } from "@/lib/engine/types";
 import { ensureMember, requireStaff, writeAudit } from "./authz";
 import { mapPlayer, mapTournament, type PlayerRow, type TournamentRow } from "./mappers";
-import { loadSnapshot, loadTeams, loadTournament, nextTeamNumber } from "./queries";
+import { countValidatedTeams, loadSnapshot, loadTeams, loadTournament, nextTeamNumber } from "./queries";
 import { ensureSeed } from "./seed";
 import type { QualifiedTeam } from "@/lib/engine/types";
 import { asPgTextArray } from "@/lib/utils";
@@ -248,15 +250,14 @@ export const deleteTournament = createServerFn({ method: "POST" })
 
 export const createTeam = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((data: { tournamentId: string; name: string; playerIds: string[]; status?: "pending" | "validated" }) => data)
+  .validator((data: { tournamentId: string; name: string; playerIds: string[]; status?: "pending" | "validated" | "waitlist" }) => data)
   .handler(async ({ context, data }) => {
     await staff(context.userId);
     const t = await loadTournament(data.tournamentId);
     if (!t) throw new Error("Concours introuvable.");
     const needed = playersPerTeam(t.teamFormat);
-    const status = data.status ?? "pending";
-    if (status === "validated" && data.playerIds.length !== needed) {
-      throw new Error(`Une équipe ${t.teamFormat === "doublette" ? "doublette" : t.teamFormat === "triplette" ? "triplette" : "tête-à-tête"} doit compter exactement ${needed} joueur${needed > 1 ? "s" : ""}.`);
+    if ((data.status ?? "pending") === "validated" && data.playerIds.length !== needed) {
+      throw new Error(`Une équipe ${formatLabel(t.teamFormat)} doit compter exactement ${needed} joueur${needed > 1 ? "s" : ""}.`);
     }
     if (data.playerIds.length === 0) {
       throw new Error("Ajoutez au moins un joueur.");
@@ -283,14 +284,15 @@ export const createTeam = createServerFn({ method: "POST" })
       select count(*)::int as n from teams
       where tournament_id = ${data.tournamentId} and status = 'validated'
     `;
-    if ((validated[0]?.n ?? 0) >= t.maxTeams && data.status === "validated") {
-      throw new Error("Le nombre maximum d'équipes est atteint.");
+    let status = data.status ?? "pending";
+    if (status === "validated" && (validated[0]?.n ?? 0) >= t.maxTeams) {
+      status = "waitlist";
     }
     const id = crypto.randomUUID();
     const number = await nextTeamNumber(data.tournamentId);
     await sql`
       insert into teams (id, tournament_id, name, number, status)
-      values (${id}, ${data.tournamentId}, ${data.name.trim() || `Équipe ${number}`}, ${number}, ${data.status ?? "pending"})
+      values (${id}, ${data.tournamentId}, ${data.name.trim() || `Équipe ${number}`}, ${number}, ${status})
     `;
     for (let i = 0; i < data.playerIds.length; i += 1) {
       await sql`
@@ -341,7 +343,7 @@ export const registerSolo = createServerFn({ method: "POST" })
 
 export const updateTeam = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((data: { teamId: string; name?: string; playerIds?: string[]; status?: "pending" | "validated" | "refused" | "cancelled" }) => data)
+  .validator((data: { teamId: string; name?: string; playerIds?: string[]; status?: "pending" | "validated" | "waitlist" | "refused" | "cancelled" }) => data)
   .handler(async ({ context, data }) => {
     await staff(context.userId);
     const sql = await getSql();
@@ -365,6 +367,13 @@ export const updateTeam = createServerFn({ method: "POST" })
       }
     }
     if (data.status) {
+      if (data.status === "validated") {
+        const n = await countValidatedTeams(team[0].tournament_id);
+        const already = await sql<{ status: string }>`select status from teams where id = ${data.teamId}`;
+        if (already[0]?.status !== "validated" && n >= t.maxTeams) {
+          throw new Error("Le nombre maximum d'équipes est atteint. Placez l'équipe en liste d'attente.");
+        }
+      }
       await sql`update teams set status = ${data.status} where id = ${data.teamId}`;
     }
     if (data.playerIds) {
@@ -437,10 +446,18 @@ export const confirmDraw = createServerFn({ method: "POST" })
     await staff(context.userId);
     const t = await loadTournament(data.tournamentId);
     if (!t) throw new Error("Concours introuvable.");
-    if (["in_progress", "finished", "archived"].includes(t.status)) {
-      throw new Error("Le tirage d'un concours déjà lancé ne peut pas être modifié silencieusement.");
+    if (isDrawLockedStatus(t.status)) {
+      throw new Error("Le tirage est verrouillé : le concours est déjà lancé.");
     }
     const sql = await getSql();
+    const existingScores = await sql<{ n: number }>`
+      select count(*)::int as n from matches
+      where tournament_id = ${data.tournamentId}
+        and status in ('live','finished','validated')
+    `;
+    if ((existingScores[0]?.n ?? 0) > 0) {
+      throw new Error("Le tirage est verrouillé : des matchs ont déjà un résultat.");
+    }
     await sql`delete from matches where tournament_id = ${data.tournamentId}`;
     await sql`delete from pools where tournament_id = ${data.tournamentId}`;
 
@@ -723,4 +740,46 @@ export const listTournamentsStaff = createServerFn({ method: "GET" })
     const sql = await getSql();
     const rows = await sql<TournamentRow>`select * from tournaments order by date desc nulls last`;
     return rows.map(mapTournament);
+  });
+
+export const exportTeams = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((data: { tournamentId: string }) => data)
+  .handler(async ({ context, data }) => {
+    await staff(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      number: number | null;
+      name: string;
+      status: string;
+      position: number;
+      first_name: string;
+      last_name: string;
+      phone: string | null;
+    }>`
+      select t.number, t.name, t.status, tp.position, p.first_name, p.last_name, p.phone
+      from teams t
+      join team_players tp on tp.team_id = t.id
+      join players p on p.id = tp.player_id
+      where t.tournament_id = ${data.tournamentId}
+      order by coalesce(t.number, 9999), tp.position
+    `;
+    const byTeam = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = `${r.number ?? ""}|${r.name}`;
+      const list = byTeam.get(key) ?? [];
+      list.push(r);
+      byTeam.set(key, list);
+    }
+    const lines = [["N°", "Équipe", "Statut", "Joueur 1", "Tél 1", "Joueur 2", "Tél 2", "Joueur 3", "Tél 3"]];
+    for (const group of byTeam.values()) {
+      const head = group[0]!;
+      const cells = [String(head.number ?? ""), head.name, head.status];
+      for (let i = 0; i < 3; i += 1) {
+        const p = group[i];
+        cells.push(p ? `${p.first_name} ${p.last_name}` : "", p?.phone ?? "");
+      }
+      lines.push(cells);
+    }
+    return lines;
   });

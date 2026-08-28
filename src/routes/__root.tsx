@@ -12,7 +12,11 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
-      { name: "description", content: "Gestion des concours de pétanque — Pétanque Bohra Paris" },
+      {
+        name: "description",
+        content:
+          "Pétanque Bohra Paris — concours, inscriptions, poules, terrains et tableau final au square des Batignolles.",
+      },
       { name: "theme-color", content: "#0B1C2C" },
     ],
     links: [

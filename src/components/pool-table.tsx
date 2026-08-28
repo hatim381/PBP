@@ -60,7 +60,14 @@ export function PoolTable({
                 >
                   <td className="px-3 py-2.5 font-display text-base">{s.rank}</td>
                   <td className="px-3 py-2.5">
-                    <TeamLine team={team} invert={invert} size="sm" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <TeamLine team={team} invert={invert} size="sm" />
+                      {s.qualified ? (
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-sand-400">
+                          Qualifiée
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-2 py-2.5 text-center">{s.played}</td>
                   <td className="px-2 py-2.5 text-center font-medium">{s.wins}</td>

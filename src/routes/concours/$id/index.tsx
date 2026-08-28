@@ -67,12 +67,28 @@ function Overview() {
             ))}
           </ul>
         </div>
+        {tournament.status === "registrations_open" ? (
+          <Link
+            to="/concours/$id/inscription"
+            params={{ id }}
+            className="block rounded-2xl border border-sand-500/30 bg-sand-500/10 px-5 py-4 text-sm text-sand-300 hover:bg-sand-500/15"
+          >
+            Inscrire une équipe — {validated.length}/{tournament.maxTeams} places
+          </Link>
+        ) : null}
         <Link
           to="/concours/$id/live"
           params={{ id }}
           className="block rounded-2xl border border-sand-500/30 bg-sand-500/10 px-5 py-4 text-sm text-sand-300 hover:bg-sand-500/15"
         >
           Ouvrir le suivi en direct
+        </Link>
+        <Link
+          to="/concours/$id/equipe"
+          params={{ id }}
+          className="block rounded-2xl border border-cream/10 px-5 py-4 text-sm text-cream/80 hover:border-sand-500/30"
+        >
+          Retrouver mon équipe, mon terrain et mon prochain match
         </Link>
       </aside>
     </div>

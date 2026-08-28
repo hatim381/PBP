@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
+import { nextMatchForTeam, opponentId } from "@/lib/court-board";
 import { planCompetition } from "@/lib/engine/pools";
-import type { TeamFormat } from "@/lib/engine/types";
+import { playersPerTeam, type TeamFormat } from "@/lib/engine/types";
 import { asPgTextArray } from "@/lib/utils";
 import { mapPlayer, mapTournament, type PlayerRow, type TournamentRow } from "./mappers";
-import { loadSnapshot } from "./queries";
+import { countValidatedTeams, findOrCreatePlayer, loadSnapshot, loadTournament, nextTeamNumber } from "./queries";
 import { ensureSeed } from "./seed";
 import type { Player } from "./types";
 
@@ -197,3 +198,164 @@ export const playerStats = createServerFn({ method: "GET" })
   });
 
 export type PublicPlayer = Player;
+
+export type ListedTournament = import("./types").Tournament & {
+  teamCount: number;
+  validatedCount: number;
+  matchCount: number;
+  matchesDone: number;
+  matchesLive: number;
+};
+
+export const registerTeamPublic = createServerFn({ method: "POST" })
+  .validator((data: {
+    tournamentId: string;
+    teamName: string;
+    players: { firstName: string; lastName: string; phone?: string }[];
+  }) => data)
+  .handler(async ({ data }) => {
+    await ensureSeed();
+    const t = await loadTournament(data.tournamentId);
+    if (!t) throw new Error("Concours introuvable.");
+    if (t.status !== "registrations_open") {
+      throw new Error("Les inscriptions de ce concours sont fermées.");
+    }
+    const needed = playersPerTeam(t.teamFormat);
+    if (data.players.length !== needed) {
+      throw new Error(`Ce concours est en ${needed === 1 ? "tête-à-tête" : needed === 2 ? "doublette" : "triplette"} : ${needed} joueur${needed > 1 ? "s" : ""} requis.`);
+    }
+    for (const p of data.players) {
+      if (!p.firstName.trim() || !p.lastName.trim()) {
+        throw new Error("Chaque joueur doit avoir un prénom et un nom.");
+      }
+    }
+    if (!data.players[0]?.phone?.trim()) {
+      throw new Error("Un numéro de téléphone est obligatoire pour l'équipe.");
+    }
+    const playerIds: string[] = [];
+    for (const p of data.players) {
+      playerIds.push(await findOrCreatePlayer(p));
+    }
+    if (new Set(playerIds).size !== playerIds.length) {
+      throw new Error("Un joueur ne peut pas apparaître deux fois dans la même équipe.");
+    }
+    const sql = await getSql();
+    const dup = await sql<{ player_id: string }>`
+      select tp.player_id
+      from team_players tp
+      join teams te on te.id = tp.team_id
+      where te.tournament_id = ${data.tournamentId}
+        and te.status <> 'cancelled'
+        and tp.player_id = any(${asPgTextArray(playerIds)}::text[])
+    `;
+    if (dup.length) {
+      throw new Error("Un des joueurs est déjà inscrit à ce concours.");
+    }
+    const validated = await countValidatedTeams(data.tournamentId);
+    const status = validated >= t.maxTeams ? "waitlist" : "pending";
+    const id = crypto.randomUUID();
+    const number = await nextTeamNumber(data.tournamentId);
+    const name = data.teamName.trim() || `Équipe ${number}`;
+    await sql`
+      insert into teams (id, tournament_id, name, number, status)
+      values (${id}, ${data.tournamentId}, ${name}, ${number}, ${status})
+    `;
+    for (let i = 0; i < playerIds.length; i += 1) {
+      await sql`
+        insert into team_players (team_id, player_id, position)
+        values (${id}, ${playerIds[i]!}, ${i + 1})
+      `;
+    }
+    return { id, number, name, status };
+  });
+
+export const lookupMyTeam = createServerFn({ method: "GET" })
+  .validator((data: { tournamentId: string; query: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureSeed();
+    const q = data.query.trim();
+    if (!q) return null;
+    const snap = await loadSnapshot(data.tournamentId);
+    if (!snap) return null;
+    const asNum = Number(q);
+    const team =
+      Number.isFinite(asNum) && asNum > 0
+        ? snap.teams.find((t) => t.number === asNum)
+        : snap.teams.find((t) => {
+            const blob = `${t.name} ${t.players.map((p) => `${p.firstName} ${p.lastName}`).join(" ")}`.toLowerCase();
+            return blob.includes(q.toLowerCase());
+          });
+    if (!team) return null;
+    const pool = snap.pools.find((p) => p.teamIds.includes(team.id));
+    const standing = pool ? (snap.standings[pool.id] ?? []).find((s) => s.teamId === team.id) : null;
+    const next = nextMatchForTeam(snap.matches, team.id);
+    const court = next ? snap.courts.find((c) => c.id === next.courtId) : null;
+    const opp = next ? opponentId(next, team.id) : null;
+    return {
+      team,
+      poolLetter: pool?.letter ?? null,
+      standing,
+      nextMatch: next,
+      opponent: opp ? snap.teams.find((x) => x.id === opp) ?? null : null,
+      courtName: court?.name ?? null,
+    };
+  });
+
+export const annualRanking = createServerFn({ method: "GET" }).handler(async () => {
+  await ensureSeed();
+  const sql = await getSql();
+  const rows = await sql<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    club: string | null;
+    tournaments: number;
+    wins: number;
+    losses: number;
+    podiums: number;
+  }>`
+    select
+      p.id,
+      p.first_name,
+      p.last_name,
+      p.club,
+      count(distinct te.tournament_id)::int as tournaments,
+      count(*) filter (
+        where m.status in ('finished','validated') and m.winner_id = te.id
+      )::int as wins,
+      count(*) filter (
+        where m.status in ('finished','validated')
+          and m.winner_id is not null
+          and m.winner_id <> te.id
+          and (m.team1_id = te.id or m.team2_id = te.id)
+      )::int as losses,
+      count(distinct tr.id) filter (where tr.winner_team_id = te.id)::int as podiums
+    from players p
+    join team_players tp on tp.player_id = p.id
+    join teams te on te.id = tp.team_id
+    join tournaments tr on tr.id = te.tournament_id
+    left join matches m on m.tournament_id = te.tournament_id
+      and (m.team1_id = te.id or m.team2_id = te.id)
+    where p.status = 'active'
+    group by p.id, p.first_name, p.last_name, p.club
+    having count(distinct te.tournament_id) > 0
+    order by
+      count(distinct tr.id) filter (where tr.winner_team_id = te.id) desc,
+      count(*) filter (where m.status in ('finished','validated') and m.winner_id = te.id) desc,
+      p.last_name
+    limit 40
+  `;
+  return rows.map((r, i) => ({
+    rank: i + 1,
+    playerId: r.id,
+    firstName: r.first_name,
+    lastName: r.last_name,
+    club: r.club,
+    tournaments: Number(r.tournaments),
+    wins: Number(r.wins),
+    losses: Number(r.losses),
+    podiums: Number(r.podiums),
+  }));
+});
+
+export type AnnualRankingRow = Awaited<ReturnType<typeof annualRanking>>[number];

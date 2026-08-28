@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSnapshot } from "@/hooks/use-snapshot";
+import { CourtBoard } from "@/components/court-board";
 import { MatchCard } from "@/components/match-card";
 import { PoolTable } from "@/components/pool-table";
 
@@ -62,6 +63,10 @@ function Live() {
           </div>
         </section>
       )}
+      <section>
+        <h2 className="mb-4 font-display text-2xl">Terrains</h2>
+        <CourtBoard courts={data.courts} matches={data.matches} teams={data.teams} />
+      </section>
       <section>
         <h2 className="mb-4 font-display text-2xl">Poules</h2>
         {data.pools.length === 0 ? (

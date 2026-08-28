@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CRITERIA_LABELS, RANKING_CRITERIA, type RankingCriterion, type TeamFormat } from "@/lib/engine/types";
+import { CRITERIA_LABELS, FORMAT_OPTIONS, RANKING_CRITERIA, type RankingCriterion, type TeamFormat } from "@/lib/engine/types";
 import { createTournament } from "@/lib/server/api-staff";
 
 export const Route = createFileRoute("/app/concours/nouveau")({ component: Nouveau });
@@ -99,9 +99,11 @@ function Nouveau() {
           <Select value={teamFormat} onValueChange={(v) => setTeamFormat(v as TeamFormat)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="tete_a_tete">Tête-à-tête</SelectItem>
-              <SelectItem value="doublette">Doublette</SelectItem>
-              <SelectItem value="triplette">Triplette</SelectItem>
+              {FORMAT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>

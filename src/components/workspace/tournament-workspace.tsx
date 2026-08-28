@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Check, Dices, MapPin, Plus, Search, Trash2, UserPlus } from "lucide-react";
+import { Check, Dices, Download, MapPin, Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BracketView } from "@/components/bracket-view";
+import { CourtBoard } from "@/components/court-board";
 import { MatchCard } from "@/components/match-card";
 import { PoolTable } from "@/components/pool-table";
 import { ScorePad } from "@/components/score-pad";
@@ -18,6 +19,7 @@ import {
   confirmDraw,
   createTeam,
   deleteTeam,
+  exportTeams,
   generateFinals,
   getMe,
   getPoolProposals,
@@ -32,7 +34,7 @@ import {
   updateTeam,
   upsertPlayer,
 } from "@/lib/server/api-staff";
-import { playersPerTeam, STATUS_LABELS, TEAM_STATUS_LABELS, type TournamentStatus } from "@/lib/engine/types";
+import { isDrawLockedStatus, playersPerTeam, STATUS_LABELS, TEAM_STATUS_LABELS, type TournamentStatus } from "@/lib/engine/types";
 import type { Match, Team } from "@/lib/server/types";
 import { cn, fullName } from "@/lib/utils";
 import type { PoolProposal } from "@/lib/engine";
@@ -179,14 +181,16 @@ function StatusActions({
 function OverviewPanel({ data }: { data: NonNullable<Awaited<ReturnType<typeof getSnapshotStaff>>> }) {
   const t = data.tournament;
   const validated = data.teams.filter((x) => x.status === "validated").length;
+  const live = data.matches.filter((m) => m.status === "live").length;
   const done = data.matches.filter((m) => m.status === "validated" || m.status === "finished").length;
+  const remaining = data.matches.filter((m) => m.status === "upcoming" || m.status === "live").length;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {[
         { n: `${validated} / ${t.maxTeams}`, l: "Équipes validées" },
-        { n: data.pools.length, l: "Poules" },
-        { n: `${done} / ${data.matches.length}`, l: "Matchs joués" },
-        { n: t.courtCount, l: "Terrains" },
+        { n: `${done} / ${data.matches.length}`, l: "Matchs terminés" },
+        { n: live, l: "Matchs en cours" },
+        { n: remaining, l: "Matchs restants" },
       ].map((s) => (
         <div key={s.l} className="rounded-2xl border border-cream/10 bg-navy-900 p-4">
           <p className="font-display text-3xl tabular-nums">{s.n}</p>
@@ -242,6 +246,24 @@ function TeamsPanel({
           <Button variant="outline" onClick={() => setSoloOpen(true)}>
             <UserPlus className="size-4" /> Inscrire un joueur
           </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const rows = await exportTeams({ data: { tournamentId: data.tournament.id } });
+              const csv = rows
+                .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";"))
+                .join("\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `equipes-${data.tournament.id}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="size-4" /> Export CSV
+          </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="size-4" /> Ajouter une équipe
           </Button>
@@ -252,12 +274,12 @@ function TeamsPanel({
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-light" />
           <Input className="pl-9" placeholder="Rechercher" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        {(["all", "pending", "validated", "refused"] as const).map((f) => (
+        {(["all", "pending", "validated", "waitlist", "refused"] as const).map((f) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={cn("rounded-full px-3 py-1.5 text-xs", filter === f ? "bg-sand-500 text-navy-900" : "bg-cream/10")}
+            className={cn("min-h-11 rounded-full px-3 py-1.5 text-xs", filter === f ? "bg-sand-500 text-navy-900" : "bg-cream/10")}
           >
             {f === "all" ? "Toutes" : TEAM_STATUS_LABELS[f]}
           </button>
@@ -303,7 +325,12 @@ function TeamsPanel({
                         Refuser
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" onClick={() => delMut.mutate(team.id)}>
+                    {team.status === "waitlist" && (
+                      <Button size="sm" variant="outline" onClick={() => statusMut.mutate({ teamId: team.id, status: "validated" })}>
+                        Promouvoir
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" aria-label={`Supprimer ${team.name}`} onClick={() => delMut.mutate(team.id)}>
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
@@ -543,7 +570,8 @@ function DrawPanel({
   onDone: () => void;
 }) {
   const t = data.tournament;
-  const locked = ["in_progress", "finished", "archived"].includes(t.status);
+  const scored = data.matches.some((m) => m.status === "live" || m.status === "finished" || m.status === "validated");
+  const locked = isDrawLockedStatus(t.status) || scored;
   const proposals = useQuery({
     queryKey: ["proposals", t.id],
     queryFn: () => getPoolProposals({ data: { tournamentId: t.id } }),
@@ -578,7 +606,15 @@ function DrawPanel({
   const selected = chosen ?? proposals.data?.proposals[0] ?? null;
 
   if (locked && data.pools.length) {
-    return <p className="text-sm text-muted-light">Le tirage est verrouillé : le concours est déjà lancé.</p>;
+    return (
+      <div className="rounded-2xl border border-cream/10 bg-navy-900 p-5">
+        <p className="font-display text-2xl">Tirage verrouillé</p>
+        <p className="mt-2 text-sm text-muted-light">
+          Le concours est lancé ou des scores ont déjà été saisis. Les poules et les matchs ne peuvent plus être
+          régénérés par accident.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -816,7 +852,7 @@ function CourtsPanel({
   onDone: () => void;
 }) {
   const [active, setActive] = useState<Match | null>(null);
-  const mut = useMutation({
+  const scoreMut = useMutation({
     mutationFn: (p: { matchId: string; score1: number; score2: number; live?: boolean }) => saveScore({ data: p }),
     onSuccess: () => {
       toast.success("Score enregistré");
@@ -825,13 +861,23 @@ function CourtsPanel({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const courtMut = useMutation({
+    mutationFn: (p: { matchId: string; courtId: string | null }) => setMatchCourt({ data: p }),
+    onSuccess: () => {
+      toast.success("Terrain mis à jour");
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const unassigned = data.matches.filter((m) => !m.courtId && m.status !== "validated" && m.status !== "finished");
+  const upcoming = data.matches.filter((m) => m.status === "upcoming" || m.status === "live");
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-light">
         Vue terrain — tapotez un match pour saisir le score. Idéal le jour du concours.
       </p>
+      <CourtBoard courts={data.courts} matches={data.matches} teams={data.teams} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {data.courts.map((court) => {
           const matches = data.matches.filter((m) => m.courtId === court.id);
@@ -884,6 +930,33 @@ function CourtsPanel({
           </div>
         </section>
       )}
+      <div className="space-y-3">
+        <h3 className="font-display text-xl">Affecter un match</h3>
+        {upcoming.slice(0, 12).map((m) => (
+          <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-cream/10 px-3 py-2">
+            <MapPin className="size-4 text-sand-400" aria-hidden />
+            <span className="min-w-0 flex-1 text-sm">
+              {(data.teams.find((t) => t.id === m.team1Id)?.name ?? "—") + " – " + (data.teams.find((t) => t.id === m.team2Id)?.name ?? "—")}
+            </span>
+            <Select
+              value={m.courtId ?? "none"}
+              onValueChange={(v) => courtMut.mutate({ matchId: m.id, courtId: v === "none" ? null : v })}
+            >
+              <SelectTrigger className="h-11 w-40">
+                <SelectValue placeholder="Terrain" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Non affecté</SelectItem>
+                {data.courts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
+      </div>
       <Dialog open={!!active} onOpenChange={(v) => !v && setActive(null)}>
         <DialogContent>
           <DialogHeader>
@@ -895,11 +968,11 @@ function CourtsPanel({
               match={active}
               teams={data.teams}
               targetPoints={data.tournament.targetPoints}
-              busy={mut.isPending}
-              onLive={(s1, s2) => mut.mutate({ matchId: active.id, score1: s1, score2: s2, live: true })}
+              busy={scoreMut.isPending}
+              onLive={(s1, s2) => scoreMut.mutate({ matchId: active.id, score1: s1, score2: s2, live: true })}
               onValidate={(s1, s2) => {
                 if (!window.confirm(`Valider le résultat ${s1} – ${s2} ?`)) return;
-                mut.mutate({ matchId: active.id, score1: s1, score2: s2 });
+                scoreMut.mutate({ matchId: active.id, score1: s1, score2: s2 });
               }}
             />
           )}

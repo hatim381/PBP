@@ -20,9 +20,9 @@ import { cn } from "@/lib/utils";
 const ITEMS = [
   { to: "/app", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
   { to: "/app/concours", label: "Concours", icon: Trophy, exact: false },
-  { to: "/app/joueurs", label: "Joueurs", icon: Users, exact: false },
-  { to: "/app/statistiques", label: "Statistiques", icon: BarChart3, exact: false },
-  { to: "/app/parametres", label: "Paramètres", icon: Settings, exact: false },
+  { to: "/app/joueurs", label: "Équipes & joueurs", icon: Users, exact: false },
+  { to: "/app/statistiques", label: "Classements", icon: BarChart3, exact: false },
+  { to: "/app/parametres", label: "Organisation", icon: Settings, exact: false },
 ] as const;
 
 function Nav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="md:pl-60">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-cream/10 bg-navy-900/90 px-4 backdrop-blur md:hidden">
-          <Button size="icon" variant="ghost" onClick={() => setOpen(true)}>
+          <Button size="icon" variant="ghost" onClick={() => setOpen(true)} aria-label="Ouvrir le menu organisateur">
             <Menu className="size-5" />
           </Button>
           <Wordmark compact />

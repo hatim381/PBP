@@ -1,3 +1,4 @@
+import { Check, CircleDashed, CircleDot, Clock3, Pause } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   MATCH_STATUS_LABELS,
@@ -19,17 +20,42 @@ export function TournamentStatusBadge({ status }: { status: TournamentStatus }) 
           : status === "draw_pending" || status === "drawn"
             ? "warn"
             : "default";
-  return <Badge variant={variant}>{STATUS_LABELS[status]}</Badge>;
+  const Icon =
+    status === "in_progress" ? CircleDot : status === "finished" || status === "archived" ? Check : Clock3;
+  return (
+    <Badge variant={variant} className="gap-1">
+      <Icon className="size-3" aria-hidden />
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
 }
 
 export function TeamStatusBadge({ status }: { status: TeamStatus }) {
   const variant =
-    status === "validated" ? "success" : status === "refused" || status === "cancelled" ? "danger" : "warn";
-  return <Badge variant={variant}>{TEAM_STATUS_LABELS[status]}</Badge>;
+    status === "validated"
+      ? "success"
+      : status === "refused" || status === "cancelled"
+        ? "danger"
+        : status === "waitlist"
+          ? "navy"
+          : "warn";
+  const Icon = status === "validated" ? Check : status === "waitlist" ? Pause : CircleDashed;
+  return (
+    <Badge variant={variant} className="gap-1">
+      <Icon className="size-3" aria-hidden />
+      {TEAM_STATUS_LABELS[status]}
+    </Badge>
+  );
 }
 
 export function MatchStatusBadge({ status }: { status: MatchStatus }) {
   const variant =
     status === "live" ? "live" : status === "validated" || status === "finished" ? "success" : "outline";
-  return <Badge variant={variant}>{MATCH_STATUS_LABELS[status]}</Badge>;
+  const Icon = status === "live" ? CircleDot : status === "validated" || status === "finished" ? Check : Clock3;
+  return (
+    <Badge variant={variant} className="gap-1">
+      <Icon className="size-3" aria-hidden />
+      {MATCH_STATUS_LABELS[status]}
+    </Badge>
+  );
 }

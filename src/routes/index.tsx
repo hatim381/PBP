@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Calendar, MapPin, Radio, Trophy, Users } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PublicShell } from "@/components/layout/public-shell";
 import { MatchCard } from "@/components/match-card";
 import { TournamentStatusBadge } from "@/components/status-badge";
+import { TournamentCard } from "@/components/tournament-card";
 import { Button } from "@/components/ui/button";
 import { formatLabel } from "@/lib/engine/types";
-import { dashboardPublic, getTournamentPublic, listTournaments } from "@/lib/server/api-public";
+import { dashboardPublic, getTournamentPublic, listTournaments, type ListedTournament } from "@/lib/server/api-public";
 import { formatDateFr } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -27,9 +29,18 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const initial = Route.useLoaderData();
-  const dash = useQuery({ queryKey: ["dash"], queryFn: () => dashboardPublic(), initialData: initial.dash });
-  const list = useQuery({ queryKey: ["tournaments"], queryFn: () => listTournaments(), initialData: initial.list });
-  const liveEvent = list.data?.find((t) => t.status === "in_progress") ?? list.data?.find((t) => t.status === "drawn");
+  const dash = useQuery({
+    queryKey: ["dash"],
+    queryFn: (): ReturnType<typeof dashboardPublic> => dashboardPublic(),
+    initialData: initial.dash,
+  });
+  const list = useQuery({
+    queryKey: ["tournaments"],
+    queryFn: (): ReturnType<typeof listTournaments> => listTournaments(),
+    initialData: initial.list,
+  });
+  const rows: ListedTournament[] = list.data ?? [];
+  const liveEvent = rows.find((t) => t.status === "in_progress") ?? rows.find((t) => t.status === "drawn");
   const liveSnap = useQuery({
     queryKey: ["t", liveEvent?.id],
     queryFn: () => getTournamentPublic({ data: { id: liveEvent!.id } }),
@@ -37,11 +48,13 @@ function Home() {
     refetchInterval: 6000,
   });
 
-  const upcoming = (list.data ?? []).filter((t) =>
+  const upcoming = rows.filter((t) =>
     ["registrations_open", "registrations_closed", "draw_pending", "draft"].includes(t.status),
   );
-  const archived = (list.data ?? []).filter((t) => t.status === "archived" || t.status === "finished");
+  const archived = rows.filter((t) => t.status === "archived" || t.status === "finished");
   const liveMatches = (liveSnap.data?.matches ?? []).filter((m) => m.status === "live");
+  const hasActivity =
+    (dash.data?.validatedTeams ?? 0) + (dash.data?.matchesDone ?? 0) + (dash.data?.matchesLive ?? 0) > 0;
 
   return (
     <PublicShell>
@@ -71,24 +84,40 @@ function Home() {
                 </Button>
               )}
               <Button asChild size="lg" variant="outline">
+                <Link to="/inscriptions">Inscrire une équipe</Link>
+              </Button>
+              <Button asChild size="lg" variant="ghost">
                 <Link to="/app">Espace organisateur</Link>
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: Users, n: dash.data?.validatedTeams ?? "—", l: "Équipes validées" },
-              { icon: Trophy, n: dash.data?.matchesDone ?? "—", l: "Matchs terminés" },
-              { icon: Radio, n: dash.data?.matchesLive ?? "—", l: "Matchs en cours" },
-              { icon: MapPin, n: dash.data?.courts ?? "—", l: "Terrains" },
-            ].map((s) => (
-              <div key={s.l} className="rounded-2xl border border-cream/10 bg-navy-850/80 p-4">
-                <s.icon className="size-4 text-sand-400" />
-                <p className="mt-3 font-display text-3xl tabular-nums">{s.n}</p>
-                <p className="text-xs text-muted-light">{s.l}</p>
-              </div>
-            ))}
-          </div>
+          {hasActivity ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: Users, n: dash.data?.validatedTeams ?? "—", l: "Équipes validées" },
+                { icon: Trophy, n: dash.data?.matchesDone ?? "—", l: "Matchs terminés" },
+                { icon: Radio, n: dash.data?.matchesLive ?? "—", l: "Matchs en cours" },
+                { icon: MapPin, n: dash.data?.courts ?? "—", l: "Terrains" },
+              ].map((s) => (
+                <div key={s.l} className="rounded-2xl border border-cream/10 bg-navy-850/80 p-4">
+                  <s.icon className="size-4 text-sand-400" aria-hidden />
+                  <p className="mt-3 font-display text-3xl tabular-nums">{s.n}</p>
+                  <p className="text-xs text-muted-light">{s.l}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              className="bg-navy-850/80"
+              title="Aucun concours programmé pour le moment."
+              body="Le prochain concours apparaîtra ici avec les inscriptions, le tirage et le suivi des matchs."
+              actions={
+                <Button asChild variant="outline">
+                  <Link to="/resultats">Voir les anciens concours</Link>
+                </Button>
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -135,49 +164,39 @@ function Home() {
       <section className="mx-auto max-w-6xl px-4 py-6">
         <h2 className="font-display text-3xl">À venir</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {upcoming.length === 0 && <p className="text-sm text-muted-light">Aucun concours à venir.</p>}
-          {upcoming.map((t) => (
-            <Link
-              key={t.id}
-              to="/concours/$id"
-              params={{ id: t.id }}
-              className="rounded-2xl border border-cream/10 bg-navy-850 p-5 transition-colors hover:border-sand-500/40"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-display text-2xl">{t.name}</h3>
-                <TournamentStatusBadge status={t.status} />
-              </div>
-              <p className="mt-2 line-clamp-2 text-sm text-muted-light">{t.description}</p>
-              <p className="mt-4 flex flex-wrap gap-3 text-xs text-cream/60">
-                <span>{formatDateFr(t.date)}</span>
-                <span>{t.venueName}</span>
-                <span>
-                  {t.validatedCount}/{t.maxTeams} équipes
-                </span>
-                <span>{formatLabel(t.teamFormat)}</span>
-              </p>
-            </Link>
-          ))}
+          {upcoming.length === 0 ? (
+            <EmptyState
+              className="md:col-span-2"
+              title="Aucun concours à venir"
+              body="Le prochain concours apparaîtra ici avec les inscriptions, le tirage et le suivi des matchs."
+              actions={
+                <>
+                  <Button asChild>
+                    <Link to="/resultats">Voir les anciens concours</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/app/concours/nouveau">Créer un concours</Link>
+                  </Button>
+                </>
+              }
+            />
+          ) : (
+            upcoming.map((t) => <TournamentCard key={t.id} t={t} />)
+          )}
         </div>
       </section>
 
       {archived.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-10">
-          <h2 className="font-display text-3xl">Derniers résultats</h2>
-          <div className="mt-5 grid gap-3">
+          <div className="mb-5 flex items-end justify-between gap-3">
+            <h2 className="font-display text-3xl">Derniers résultats</h2>
+            <Button asChild variant="ghost">
+              <Link to="/resultats">Tout voir</Link>
+            </Button>
+          </div>
+          <div className="grid gap-3">
             {archived.map((t) => (
-              <Link
-                key={t.id}
-                to="/concours/$id"
-                params={{ id: t.id }}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cream/10 bg-navy-850 px-5 py-4 hover:border-sand-500/30"
-              >
-                <div>
-                  <p className="font-medium">{t.name}</p>
-                  <p className="text-xs text-muted-light">{formatDateFr(t.date)}</p>
-                </div>
-                <TournamentStatusBadge status={t.status} />
-              </Link>
+              <TournamentCard key={t.id} t={t} />
             ))}
           </div>
         </section>

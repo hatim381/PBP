@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { EmptyState } from "@/components/empty-state";
 import { PublicShell } from "@/components/layout/public-shell";
-import { TournamentStatusBadge } from "@/components/status-badge";
-import { formatLabel } from "@/lib/engine/types";
-import { listTournaments } from "@/lib/server/api-public";
-import { formatDateFr } from "@/lib/utils";
+import { TournamentCard } from "@/components/tournament-card";
+import { Button } from "@/components/ui/button";
+import { listTournaments, type ListedTournament } from "@/lib/server/api-public";
 
 export const Route = createFileRoute("/concours/")({
   loader: async () => listTournaments(),
@@ -13,7 +13,12 @@ export const Route = createFileRoute("/concours/")({
 
 function ConcoursList() {
   const initial = Route.useLoaderData();
-  const list = useQuery({ queryKey: ["tournaments"], queryFn: () => listTournaments(), initialData: initial });
+  const list = useQuery({
+    queryKey: ["tournaments"],
+    queryFn: (): ReturnType<typeof listTournaments> => listTournaments(),
+    initialData: initial,
+  });
+  const rows: ListedTournament[] = list.data ?? [];
 
   return (
     <PublicShell>
@@ -21,34 +26,22 @@ function ConcoursList() {
         <p className="text-[11px] uppercase tracking-[0.22em] text-sand-400">Calendrier</p>
         <h1 className="mt-2 font-display text-4xl sm:text-5xl">Concours</h1>
         <p className="mt-2 max-w-xl text-muted-light">
-          Poules, matchs et classements de l'association — du brouillon à l'archive.
+          Date, heure, lieu, format, places et statut des inscriptions — du tirage au vainqueur.
         </p>
         <div className="mt-8 grid gap-4">
-          {(list.data ?? []).map((t) => (
-            <Link
-              key={t.id}
-              to="/concours/$id"
-              params={{ id: t.id }}
-              className="rounded-2xl border border-cream/10 bg-navy-850 p-5 transition-colors hover:border-sand-500/40"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-2xl">{t.name}</h2>
-                  <p className="mt-1 text-sm text-muted-light">{t.description}</p>
-                </div>
-                <TournamentStatusBadge status={t.status} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-cream/65">
-                <span>{formatDateFr(t.date)}</span>
-                <span>{t.venueName}</span>
-                <span>{formatLabel(t.teamFormat)}</span>
-                <span>
-                  {t.validatedCount}/{t.maxTeams} équipes
-                </span>
-                {t.matchesLive > 0 && <span className="text-live">{t.matchesLive} en cours</span>}
-              </div>
-            </Link>
-          ))}
+          {rows.length === 0 ? (
+            <EmptyState
+              title="Aucun concours programmé pour le moment."
+              body="Le prochain concours apparaîtra ici avec les inscriptions, le tirage et le suivi des matchs."
+              actions={
+                <Button asChild variant="outline">
+                  <Link to="/resultats">Voir les anciens concours</Link>
+                </Button>
+              }
+            />
+          ) : (
+            rows.map((t) => <TournamentCard key={t.id} t={t} />)
+          )}
         </div>
       </div>
     </PublicShell>

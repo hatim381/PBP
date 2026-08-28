@@ -175,3 +175,52 @@ export async function nextTeamNumber(tournamentId: string): Promise<number> {
   `;
   return (rows[0]?.n ?? 0) + 1;
 }
+
+export async function findOrCreatePlayer(input: {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}): Promise<string> {
+  const sql = await getSql();
+  const first = input.firstName.trim();
+  const last = input.lastName.trim();
+  const phone = input.phone?.trim() || null;
+  if (!first || !last) throw new Error("Prénom et nom sont obligatoires.");
+  if (phone) {
+    const byPhone = await sql<{ id: string }>`
+      select id from players
+      where lower(first_name) = ${first.toLowerCase()}
+        and lower(last_name) = ${last.toLowerCase()}
+        and phone = ${phone}
+      limit 1
+    `;
+    if (byPhone[0]) return byPhone[0].id;
+  }
+  const byName = await sql<{ id: string }>`
+    select id from players
+    where lower(first_name) = ${first.toLowerCase()}
+      and lower(last_name) = ${last.toLowerCase()}
+    limit 1
+  `;
+  if (byName[0]) {
+    if (phone) {
+      await sql`update players set phone = coalesce(phone, ${phone}) where id = ${byName[0].id}`;
+    }
+    return byName[0].id;
+  }
+  const id = crypto.randomUUID();
+  await sql`
+    insert into players (id, first_name, last_name, phone, club)
+    values (${id}, ${first}, ${last}, ${phone}, 'PBP')
+  `;
+  return id;
+}
+
+export async function countValidatedTeams(tournamentId: string): Promise<number> {
+  const sql = await getSql();
+  const rows = await sql<{ n: number }>`
+    select count(*)::int as n from teams
+    where tournament_id = ${tournamentId} and status = 'validated'
+  `;
+  return rows[0]?.n ?? 0;
+}

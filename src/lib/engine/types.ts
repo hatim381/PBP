@@ -1,4 +1,10 @@
-export const TEAM_FORMATS = ["tete_a_tete", "doublette", "triplette"] as const;
+export const TEAM_FORMATS = [
+  "tete_a_tete",
+  "doublette",
+  "doublette_mixte",
+  "triplette",
+  "triplette_mixte",
+] as const;
 export type TeamFormat = (typeof TEAM_FORMATS)[number];
 
 export const TOURNAMENT_STATUSES = [
@@ -13,7 +19,7 @@ export const TOURNAMENT_STATUSES = [
 ] as const;
 export type TournamentStatus = (typeof TOURNAMENT_STATUSES)[number];
 
-export const TEAM_STATUSES = ["pending", "validated", "refused", "cancelled"] as const;
+export const TEAM_STATUSES = ["pending", "validated", "waitlist", "refused", "cancelled"] as const;
 export type TeamStatus = (typeof TEAM_STATUSES)[number];
 
 export const MATCH_STATUSES = ["upcoming", "live", "finished", "validated"] as const;
@@ -101,16 +107,26 @@ export type BracketNode = {
   nextMatchSlot: 1 | 2 | null;
 };
 
+export const FORMAT_OPTIONS: { value: TeamFormat; label: string }[] = [
+  { value: "tete_a_tete", label: "Tête-à-tête" },
+  { value: "doublette", label: "Doublette" },
+  { value: "doublette_mixte", label: "Doublette mixte" },
+  { value: "triplette", label: "Triplette" },
+  { value: "triplette_mixte", label: "Triplette mixte" },
+];
+
 export function playersPerTeam(format: TeamFormat): number {
   if (format === "tete_a_tete") return 1;
-  if (format === "doublette") return 2;
+  if (format === "doublette" || format === "doublette_mixte") return 2;
   return 3;
 }
 
 export function formatLabel(format: TeamFormat): string {
-  if (format === "tete_a_tete") return "Tête-à-tête";
-  if (format === "doublette") return "Doublette";
-  return "Triplette";
+  return FORMAT_OPTIONS.find((o) => o.value === format)?.label ?? format;
+}
+
+export function isDrawLockedStatus(status: TournamentStatus): boolean {
+  return status === "in_progress" || status === "finished" || status === "archived";
 }
 
 export const STATUS_LABELS: Record<TournamentStatus, string> = {
@@ -127,6 +143,7 @@ export const STATUS_LABELS: Record<TournamentStatus, string> = {
 export const TEAM_STATUS_LABELS: Record<TeamStatus, string> = {
   pending: "En attente",
   validated: "Validée",
+  waitlist: "Liste d'attente",
   refused: "Refusée",
   cancelled: "Annulée",
 };
